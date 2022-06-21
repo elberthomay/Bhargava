@@ -241,14 +241,14 @@ module bhargava(
 		else                     vlc_cnt_bit <= vlc_cnt_bit + video_advance_reg;
 	
 	always @(posedge clk)
-		if(~rst_n)                   ex_cnt_cnt <= 32'h0;
-		else if(sign_counter_cnt_wr) ex_cnt_cnt <= ex_cnt_cnt + sign_counter_cnt_out[6:0];
-		else                         ex_cnt_cnt <= ex_cnt_cnt;
+		if(~rst_n)                     ex_cnt_cnt <= 32'h0;
+		else if(extend_counter_cnt_wr) ex_cnt_cnt <= ex_cnt_cnt + extend_counter_cnt_out[6:0];
+		else                           ex_cnt_cnt <= ex_cnt_cnt;
 	
 	always @(posedge clk)
-		if(~rst_n)                     sign_cnt_cnt <= 32'h0;
-		else if(extend_counter_cnt_wr) sign_cnt_cnt <= sign_cnt_cnt + extend_counter_cnt_out[6:0];
-		else                           sign_cnt_cnt <= sign_cnt_cnt;
+		if(~rst_n)                   sign_cnt_cnt <= 32'h0;
+		else if(sign_counter_cnt_wr) sign_cnt_cnt <= sign_cnt_cnt + sign_counter_cnt_out[6:0];
+		else                         sign_cnt_cnt <= sign_cnt_cnt;
 		
 	always @(posedge clk)
 		if(~rst_n)                          sign_switch_cnt <= 32'd0;
@@ -281,10 +281,10 @@ module bhargava(
 		else                   mb_ser_sign_cnt <= mb_ser_sign_cnt;	
 		
 	always @(posedge clk2x)
-		if(~rst_n)              dese64_sign_cnt <= 32'd0;
-		else if(dese64_des_wr)  dese64_sign_cnt <= dese64_sign_cnt + 64;
-		else if(dese64_last_wr) dese64_sign_cnt <= dese64_sign_cnt + dese64_size_out;
-		else                    dese64_sign_cnt <= dese64_sign_cnt;
+		if(~rst_n)                     dese64_sign_cnt <= 32'd0;
+		else if(dese64_des_wr)         dese64_sign_cnt <= dese64_sign_cnt + 64;
+		else if(post_des_ser_last_ack) dese64_sign_cnt <= dese64_sign_cnt + dese64_size_out;
+		else                           dese64_sign_cnt <= dese64_sign_cnt;
 		
 	always @(posedge clk2x)
 		if(~rst_n)                    post_des_sign_cnt <= 32'd0;
@@ -526,11 +526,12 @@ module bhargava(
 	
 	bitpos_fifo bitpos_fifo_inst(
         .clk(clk_400),
-        .srst(rst),
+        .rst(rst),
 		
         .din(mb_ser_bitpos_out),
 		.wr_en(mb_ser_out_wr),
-		.almost_full(bitpos_fifo_afull),
+		//.almost_full(bitpos_fifo_afull),
+		.prog_full(bitpos_fifo_afull),
 		
         .dout(bitpos_fifo_dout),
         .rd_en(unscrambler_bitpos_rd),

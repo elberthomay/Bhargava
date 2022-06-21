@@ -10,11 +10,13 @@ module unscrambler(
 	output logic [6:0]  unscrambler_size,
 	output logic        unscrambler_wr
 );
-	logic               pos_ready0;
+	//logic               pos_ready0;
 	logic               pos_ready;
 	logic [63:0]        unscrambler_reg;
 	logic [6:0]         size_reg;
 	logic               mb_end;
+	
+	/*
 	
 	//pos_ready0
 	always_ff @(posedge clk)
@@ -26,6 +28,14 @@ module unscrambler(
 	always_ff @(posedge clk)
 		if(~rst)        pos_ready <= 1'b0;
 		else if(clk_en) pos_ready <= (pos_rd && pos_ready0) || (pos_ready && ~sign_en);
+		else            pos_ready <= pos_ready;
+		
+	*/
+	
+	//pos_ready
+	always_ff @(posedge clk)
+		if(~rst)        pos_ready <= 1'b0;
+		else if(clk_en) pos_ready <= pos_rd || (pos_ready && ~sign_en);
 		else            pos_ready <= pos_ready;
 		
 	//unscrambler_reg
@@ -65,7 +75,7 @@ module unscrambler(
 		else if(clk_en) unscrambler_wr <= mb_end;
 		else            unscrambler_wr <= 1'b0;
 			
-	assign pos_rd = (~pos_ready || sign_en) && (~pos_empty || pos_ready0) && clk_en;
+	assign pos_rd = (~pos_ready || sign_en) && ~pos_empty && clk_en;
 	
 	
 
