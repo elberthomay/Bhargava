@@ -9,7 +9,7 @@ module video_extender(clk, clk_en, rst, stream_end, vbuf_in, vbuf_wr_in, vbuf_ou
 	output 		vbuf_wr_out;
 	
 	
-	reg[3:0] extend_count;
+	reg[4:0] extend_count;
 	
 	parameter [1:0] 
 		STATE_IDLE   = 2'd0,
@@ -22,7 +22,7 @@ module video_extender(clk, clk_en, rst, stream_end, vbuf_in, vbuf_wr_in, vbuf_ou
 	always @* begin
 		casez(state)
 			STATE_IDLE   : next = stream_end ? STATE_EXTEND : STATE_IDLE;
-			STATE_EXTEND : next = extend_count == 4'hF ? STATE_FINISH : STATE_EXTEND;
+			STATE_EXTEND : next = extend_count == 5'h17 ? STATE_FINISH : STATE_EXTEND;
 			default      : next = STATE_FINISH;
 		endcase
 	end
@@ -35,8 +35,8 @@ module video_extender(clk, clk_en, rst, stream_end, vbuf_in, vbuf_wr_in, vbuf_ou
 	
 	//extend_count
 	always @(posedge clk) begin
-		if(~rst)                                 extend_count <= 4'h0;
-		else if(clk_en && state == STATE_EXTEND) extend_count <= extend_count + 4'd1;
+		if(~rst)                                 extend_count <= 5'h0;
+		else if(clk_en && state == STATE_EXTEND) extend_count <= extend_count + 5'd1;
 		else                                     extend_count <= extend_count;
 	end
 	
