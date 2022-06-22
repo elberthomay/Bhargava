@@ -89,7 +89,7 @@ module bhargava_test(
 	
 	//file
 	initial begin
-		file = $fopen("dats/bjork_snippet1.mpg", "rb");
+		file = $fopen("dats/bjork_snippet2.mpg", "rb");
 		if (!file) begin
 			$error("could not read file");
 			$stop;

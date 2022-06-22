@@ -106,7 +106,7 @@ module replacer_extend(
 	assign next_data_wr = vid_ready && cnt_reg_ready && cnt_reg >= next_decrement;
 	
 	//cnt_reg_use
-	assign cnt_reg_use = cnt_reg <= next_decrement;
+	assign cnt_reg_use = vid_ready && cnt_reg <= next_decrement;
 	
 	//vid_rd
 	assign vid_rd = (~vid_ready || next_data_wr) && module_en;
