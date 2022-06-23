@@ -53,7 +53,7 @@ module mb_ser(
 	//mb_ready
 	always_ff @(posedge clk)
 		if(~rst)        mb_ready <= 1'b0;
-		else if(clk_en) mb_ready <= mb_rd || (mb_ready && mb_reg_ready);
+		else if(clk_en) mb_ready <= mb_rd || (mb_ready && (mb_reg_ready || dese_full));
 		else            mb_ready <= mb_ready;
 	
 	
@@ -61,15 +61,15 @@ module mb_ser(
 	//mb_reg_ready
 	always_ff @(posedge clk)
 		if(~rst)        mb_reg_ready <= 1'b0;
-		else if(clk_en) mb_reg_ready <= (~mb_reg_ready && mb_ready && ~no_sign) || (mb_reg_ready && ~(size_reg == 7'd1 && next_mb_wr));
+		else if(clk_en) mb_reg_ready <= (~mb_reg_ready && mb_ready && ~no_sign && ~dese_full) || (mb_reg_ready && ~(size_reg == 7'd1 && next_mb_wr));
 		else            mb_reg_ready <= mb_reg_ready;
 		
 	//slice_end_reg
 	always_ff @(posedge clk)
-		if(~rst)                                     slice_end_reg <= 1'b0;
-		else if(clk_en && ~mb_reg_ready && mb_ready) slice_end_reg <= slice_end;
-		else if(clk_en && ~mb_reg_ready)             slice_end_reg <= 1'b0;
-		else                                         slice_end_reg <= slice_end_reg;
+		if(~rst)                                                   slice_end_reg <= 1'b0;
+		else if(clk_en && ~mb_reg_ready && mb_ready && ~dese_full) slice_end_reg <= slice_end;
+		else if(clk_en && ~mb_reg_ready)                           slice_end_reg <= 1'b0;
+		else                                                       slice_end_reg <= slice_end_reg;
 		
     
 	//sign_reg
