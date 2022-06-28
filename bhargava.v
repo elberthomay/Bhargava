@@ -1,6 +1,7 @@
-//`undef DEBUG
-`define DEBUG 1
-
+//`undef DES
+`define DES 1
+`undef DEBUG
+//`define DEBUG 1
 module bhargava(
 	
 	
@@ -11,6 +12,11 @@ module bhargava(
 	input [7:0]  mpeg_in,
 	input        mpeg_in_en,
 	input        stream_end,
+`ifdef DES
+	input [63:0] key_in, 
+	input        mode_in,  
+	input        key_en, 
+`endif
 	
 	output [7:0] mpeg_out,
 	output       mpeg_out_en,
@@ -96,8 +102,8 @@ module bhargava(
 	wire         collator_mb_conf_wr;
 	
     wire [456:0] mb_fifo_dout;
-	wire mb_fifo_afull;
-    wire mb_fifo_empty;
+	wire         mb_fifo_afull;
+    wire         mb_fifo_empty;
 	
 	wire [94:0]  mb_conf_fifo_dout;
 	wire         mb_conf_fifo_afull;
@@ -119,6 +125,7 @@ module bhargava(
 	wire         dese64_last_wr;
 	
 	wire [63:0]  des_out;
+	wire         des_busy;
 	wire         des_wr;
 	
 	wire         post_des_ser_sign_out;
@@ -192,9 +199,11 @@ module bhargava(
 	wire         joiner_misc_rd;
 	
 	assign rst_n = ~rst;
-	
+`ifndef DES
 	assign des_out = dese64_sign_out;
+	assign des_busy = 1'b0;
 	assign des_wr = dese64_des_wr;
+`endif
   
 	// IBUFDS IBUFDS_inst(
 		// .I(clk_p),
@@ -553,6 +562,21 @@ module bhargava(
 		.des_wr(dese64_des_wr),
 		.last_wr(dese64_last_wr)
 	);
+`ifdef DES
+	DES_single des(
+		.clk(clk_400),  
+		.clk_en(clk_en),  
+		.rst(rst_n), 
+		.data_in(dese64_sign_out),  
+		.data_en(dese64_des_wr), 
+		.key_in(key_in), 
+		.mode_in(mode_in),  
+		.key_en(key_en), 
+		.data_out(des_out),
+		.des_busy(des_busy), 
+		.des_wr(des_wr)
+	);
+`endif
 	
 	post_des_ser pos_des_ser_inst(
 		.clk(clk_400),
@@ -560,7 +584,7 @@ module bhargava(
 		.rst(rst_n),
 		
 		.des_in(des_out),
-		.des_busy(1'b0),
+		.des_busy(des_busy),
 		.des_wr(des_wr),
 		.last_in(dese64_sign_out),
 		.last_size(dese64_size_out),
