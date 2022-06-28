@@ -147,7 +147,7 @@ function count_to_shift_n(input [3:0] cnt);
 	endcase
 endfunction
 
-function [0:55]DES_key_cd_shift(
+function automatic[0:55]DES_key_cd_shift(
 	input[0:55] in, 
 	input dir, 		// deasserted shift left, asserted shift right
 	input n			// deasserted shift 1, asserted shift 2
