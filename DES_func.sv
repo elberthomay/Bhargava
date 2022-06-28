@@ -162,3 +162,51 @@ function automatic[0:55]DES_key_cd_shift(
 		2'b11 : DES_key_cd_shift = {c[26:27], c[0:25],  d[26:27], d[0:25]};
 	endcase
 endfunction
+
+function [63:0] reverse_lr(input [63:0] in);
+	reverse_lr = {in[31:0], in[63:32]};
+endfunction
+
+// function [0:55] half_circular_shift(input[0:55] in, input[4:0] n);
+	// logic  [0:27] c = in[0:27];
+	// logic  [0:27] d = in[28:55];
+	// half_circular_shift = {c[n :+ 28-n], c[0 :+ n], d[n :+ 28-n], d[0 :+ n]};
+// endfunction
+
+function [0:15][0:47]generate_key(input[0:55] in);
+	logic [0:27] c,d;
+	{c,d} = in;
+
+	generate_key[0] = PC2({c[1 : 27], c[0 +: 1], 
+		                   d[1 : 27], d[0 +: 1]});
+	generate_key[1] = PC2({c[2 : 27], c[0 +: 2], 
+		                   d[2 : 27], d[0 +: 2]});
+	generate_key[2] = PC2({c[4 : 27], c[0 +: 4], 
+		                   d[4 : 27], d[0 +: 4]});
+	generate_key[3] = PC2({c[6 : 27], c[0 +: 6], 
+		                   d[6 : 27], d[0 +: 6]});
+	generate_key[4] = PC2({c[8 : 27], c[0 +: 8], 
+		                   d[8 : 27], d[0 +: 8]});
+	generate_key[5] = PC2({c[10 : 27], c[0 +: 10], 
+		                   d[10 : 27], d[0 +: 10]});
+	generate_key[6] = PC2({c[12 : 27], c[0 +: 12], 
+		                   d[12 : 27], d[0 +: 12]});
+	generate_key[7] = PC2({c[14 : 27], c[0 +: 14], 
+		                   d[14 : 27], d[0 +: 14]});
+	generate_key[8] = PC2({c[15 : 27], c[0 +: 15], 
+		                   d[15 : 27], d[0 +: 15]});
+	generate_key[9] = PC2({c[17 : 27], c[0 +: 17], 
+		                   d[17 : 27], d[0 +: 17]});
+	generate_key[10] = PC2({c[19 : 27], c[0 +: 19], 
+		                   d[19 : 27], d[0 +: 19]});
+	generate_key[11] = PC2({c[21 : 27], c[0 +: 21], 
+		                   d[21 : 27], d[0 +: 21]});
+	generate_key[12] = PC2({c[23 : 27], c[0 +: 23], 
+		                   d[23 : 27], d[0 +: 23]});
+	generate_key[13] = PC2({c[25 : 27], c[0 +: 25], 
+		                   d[25 : 27], d[0 +: 25]});
+	generate_key[14] = PC2({c[27 : 27], c[0 +: 27], 
+		                   d[27 : 27], d[0 +: 27]});
+							  
+	generate_key[15] = PC2(in);
+endfunction

@@ -142,3 +142,67 @@ module DES_single(
 		else            des_wr <= des_wr;
 	
 endmodule
+
+module DES_pipeline(
+	input        clk, clk_en, rst,
+	input [63:0] data_in,
+	input        data_in_en,
+	input [63:0] key_in,
+	input        mode_in,
+	input        key_en,
+	
+	output logic [63:0] data_out,
+	output logic        des_busy,
+	output logic        data_out_en
+	
+);
+	logic [55:0]       key_cd;
+	wire [0:15][47:0]  key = generate_key(key_cd);
+	
+	logic              mode;
+	logic [0:14][63:0] data_pipeline;
+	logic [0:14]       pipeline_valid;
+	logic [3:0]        valid_cnt;
+	
+	always_ff @(posedge clk)
+		if(~rst)                  key_cd <= 56'h0;
+		else if(clk_en && key_en) key_cd <= PC1(key_in);
+		else                      key_cd <= key_cd;
+		
+	always_ff @(posedge clk)
+		if(~rst)                  mode <= 1'b0;
+		else if(clk_en && key_en) mode <= mode_in;
+		else                      mode <= mode;
+		
+	always_ff @(posedge clk)
+		if(clk_en) data_pipeline[0] <= DES_round(IP(data_in), (mode? key[15] : key[0]) );
+		else       data_pipeline[0] <= data_pipeline[0];
+		
+	generate for(genvar i = 1; i < 15; i++)
+		always_ff @(posedge clk)
+			if(clk_en) data_pipeline[i] <= DES_round(data_pipeline[i-1], (mode? key[15-i] : key[i]) );
+			else       data_pipeline[i] <= data_pipeline[i];
+	endgenerate
+	
+	always_ff @(posedge clk)
+		if(clk_en) data_out <= IP_inv(reverse_lr(DES_round(data_pipeline[14], (mode? key[0] : key[15]) ) ) );
+		else       data_out <= data_out;
+		
+	always_ff @(posedge clk)
+		if(~rst)        pipeline_valid <= 15'h0;
+		else if(clk_en) pipeline_valid <= {data_in_en, pipeline_valid[0:14]};
+		else            pipeline_valid <= pipeline_valid;
+		
+	always_ff @(posedge clk)
+		if(~rst)                                             valid_cnt <= 4'd0;
+		else if(clk_en && ~data_in_en && pipeline_valid[14]) valid_cnt <= valid_cnt + 1;
+		else if(clk_en && data_in_en && ~pipeline_valid[14]) valid_cnt <= valid_cnt - 1;
+		else                                                 valid_cnt <= valid_cnt;
+		
+	always_comb des_busy = valid_cnt != 4'd0;
+		
+	always_ff @(posedge clk)
+		if(~rst)        data_out_en <= 1'b0;
+		else if(clk_en) data_out_en <= pipeline_valid[14];
+		else            data_out_en <= data_out_en;
+endmodule
