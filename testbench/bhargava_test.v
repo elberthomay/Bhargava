@@ -1,7 +1,6 @@
-//`undef DES
-`define DES 1
-//`undef DEBUG
-`define DEBUG 1
+`undef DES
+//`define DES 1
+
 `timescale 1ns/1ns
 //////////////////////////////////////////////////////////////////////////////////
 // Company: 
@@ -86,7 +85,9 @@ module bhargava_test(
 	
 	initial begin
 		key_in = 64'ha1b2c3d4e5f61234;
+		
 		mode_in = 1'b1;
+		
 		key_en = 1'b0;
 		#150 key_en = 1'b0;
 		@(posedge clk2x) key_en = 1'b1;

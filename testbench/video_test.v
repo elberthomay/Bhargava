@@ -15,7 +15,7 @@ module video_test();
 	
 	integer rld_cnt;
 	
-	reg rld_wr_almost_full;
+	reg mb_fifo_afull;
 
 	task refresh_getbits(); 
 		begin
@@ -42,7 +42,7 @@ module video_test();
 	endtask
 
 	initial begin
-    	fd = $fopen("E:/Bhargava/Bhargava.srcs/src/testbench/dats/vld test.mpg", "rb");
+    	fd = $fopen("F:/Bhargava/Bhargava.srcs/src/testbench/dats/vld test.mpg", "rb");
     	if (!fd) $error("could not read file");
 	end
 
@@ -59,16 +59,16 @@ module video_test();
 
 	initial @(posedge clk) rst <= 1'b1;	
 	
-	initial rld_wr_almost_full = 1'b0;
+	initial mb_fifo_afull = 1'b0;
 	
 	// initial rld_cnt = 0;
 	// always @(posedge clk) begin
 		// if(rld_cnt == 3) begin
-			// rld_wr_almost_full <= 1'b1;
+			// mb_fifo_afull <= 1'b1;
 			// rld_cnt <= 0;
 		// end
 		// else begin
-			// rld_wr_almost_full <= 1'b0;
+			// mb_fifo_afull <= 1'b0;
 			// rld_cnt <= rld_cnt + 1;
 		// end
 	// end
@@ -94,9 +94,10 @@ module video_test();
     //.signbit(signbit), 
     .getbits_valid(getbits_valid),
     //.wait_state(wait_state), 
-    .rld_wr_almost_full(rld_wr_almost_full), 
-    .mvec_wr_almost_full(1'b0), 
-    .motcomp_busy(1'b0), 
+    .mb_fifo_afull(mb_fifo_afull), 
+    .sign_counter_fifo_afull(1'b0), 
+    .mb_conf_fifo_afull(1'b0), 
+	.extend_counter_fifo_afull(1'b0),
     .vld_en(vld_en));
 
 	video vld(

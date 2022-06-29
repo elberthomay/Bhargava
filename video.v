@@ -31,8 +31,8 @@ module video(
 	output reg		  macroblock_end;
 	output reg		  slice_end;
 
-	reg          [4:0]state;
-  	reg          [4:0]next;
+	reg          [5:0]state;
+  	reg          [5:0]next;
 
 	wire              module_en;
 	
@@ -107,48 +107,55 @@ module video(
   	reg        [15:0]dct_coefficient_0_decoded;
   	reg        [15:0]dct_non_intra_first_coefficient_0_decoded;
 	
-	parameter [4:0]
-		STATE_NEXT_START_CODE     = 5'h00, 
-		STATE_START_CODE          = 5'h01, 
+	reg         [1:0]compensation_cnt;
+	
+	parameter [5:0]
+		STATE_NEXT_START_CODE     = 6'h00, 
+		STATE_START_CODE          = 6'h01, 
 
-		STATE_SEQUENCE_HEADER     = 5'h02, 
-		STATE_SEQUENCE_HEADER2    = 5'h03, 
-		STATE_SEQUENCE_HEADER3    = 5'h04, 
-		STATE_LD_INTRA_QUANT0     = 5'h05, 
-		STATE_LD_NON_INTRA_QUANT0 = 5'h06, 
+		STATE_SEQUENCE_HEADER     = 6'h02, 
+		STATE_SEQUENCE_HEADER2    = 6'h03, 
+		STATE_SEQUENCE_HEADER3    = 6'h04, 
+		STATE_LD_INTRA_QUANT0     = 6'h05, 
+		STATE_LD_NON_INTRA_QUANT0 = 6'h06, 
 
-		STATE_GROUP_HEADER        = 5'h07, 
-		STATE_GROUP_HEADER0       = 5'h08, 
+		STATE_GROUP_HEADER        = 6'h07, 
+		STATE_GROUP_HEADER0       = 6'h08, 
 
-		STATE_PICTURE_HEADER      = 5'h09, 
-		STATE_PICTURE_HEADER0     = 5'h0a, 
-		STATE_PICTURE_HEADER1     = 5'h0b, 
-		STATE_PICTURE_HEADER2     = 5'h0c, 
-		STATE_PICTURE_EXTRA_INFO  = 5'h0d, 
+		STATE_PICTURE_HEADER      = 6'h09, 
+		STATE_PICTURE_HEADER0     = 6'h0a, 
+		STATE_PICTURE_HEADER1     = 6'h0b, 
+		STATE_PICTURE_HEADER2     = 6'h0c, 
+		STATE_PICTURE_EXTRA_INFO  = 6'h0d, 
 
-		STATE_SLICE               = 5'h0e, 
-		STATE_SLICE_EXTRA_INFO    = 5'h0f, 
+		STATE_SLICE               = 6'h0e, 
+		STATE_SLICE_EXTRA_INFO    = 6'h0f, 
 
-		STATE_NEXT_MACROBLOCK     = 5'h10, 
-		STATE_MACROBLOCK_TYPE     = 5'h11, 
-		STATE_MACROBLOCK_QUANT    = 5'h12, 
+		STATE_NEXT_MACROBLOCK     = 6'h10, 
+		STATE_MACROBLOCK_TYPE     = 6'h11, 
+		STATE_MACROBLOCK_QUANT    = 6'h12, 
 		
-		STATE_NEXT_MOTION_VECTOR  = 5'h13, 
-		STATE_MOTION_CODE         = 5'h14, 
-		STATE_MOTION_RESIDUAL     = 5'h15, 
+		STATE_NEXT_MOTION_VECTOR  = 6'h13, 
+		STATE_MOTION_CODE         = 6'h14, 
+		STATE_MOTION_RESIDUAL     = 6'h15, 
 		
-		STATE_CODED_BLOCK_PATTERN = 5'h16, 
-		STATE_NEXT_BLOCK          = 5'h17, 
-		STATE_DCT_DC_LUMI_SIZE    = 5'h18, 
-		STATE_DCT_DC_CHROMI_SIZE  = 5'h19, 
-		STATE_DCT_DC_DIFF         = 5'h1a, 
+		STATE_CODED_BLOCK_PATTERN = 6'h16, 
+		STATE_NEXT_BLOCK          = 6'h17, 
+		STATE_DCT_DC_LUMI_SIZE    = 6'h18, 
+		STATE_DCT_DC_CHROMI_SIZE  = 6'h19, 
+		STATE_DCT_DC_DIFF         = 6'h1a, 
 		
-		STATE_DCT_NON_INTRA_FIRST = 5'h1b, 
-		STATE_DCT_SUBS_B14        = 5'h1c, 
-		STATE_DCT_ESCAPE_B14      = 5'h1d, 
+		STATE_DCT_NON_INTRA_FIRST = 6'h1b, 
+		STATE_DCT_SUBS_B14        = 6'h1c, 
+		STATE_DCT_ESCAPE_B14      = 6'h1d, 
 
-		STATE_SEQUENCE_END        = 5'h1e, 
-		STATE_ERROR               = 5'h1f;
+		STATE_SEQUENCE_END        = 6'h1e, 
+		STATE_ERROR               = 6'h1f,
+		
+		STATE_SKIP0               = 6'h20,
+		STATE_SKIP_CHECK          = 6'h21,
+		STATE_SKIP1               = 6'h22,
+		STATE_COMPENSATION        = 6'h23;
 
 
 		/* start codes */
@@ -247,9 +254,20 @@ module video(
                                               else             next = STATE_NEXT_MACROBLOCK;
 
 
-			STATE_NEXT_MACROBLOCK           : if (macroblock_addr_inc_escape)             next = STATE_NEXT_MACROBLOCK; // macroblock address escape
-                                              else if (macroblock_addr_inc_value == 6'd0) next = STATE_ERROR;
-                                              else                                        next = STATE_MACROBLOCK_TYPE;
+			STATE_NEXT_MACROBLOCK           : if(picture_coding_type == 3'd1 && getbits == 24'hE52948) next = STATE_SKIP0;
+											  else if (macroblock_addr_inc_escape)                     next = STATE_NEXT_MACROBLOCK; // macroblock address escape
+                                              else if (macroblock_addr_inc_value == 6'd0)              next = STATE_ERROR;
+                                              else                                                     next = STATE_MACROBLOCK_TYPE;
+											  
+			STATE_SKIP0						: next = STATE_SKIP_CHECK;
+											  
+			STATE_SKIP_CHECK				: if(getbits[23:16] == 8'h22) next = STATE_SKIP1;
+											  else                        next = STATE_COMPENSATION;
+											  
+			STATE_SKIP1						: next = STATE_NEXT_BLOCK;
+			
+			STATE_COMPENSATION 				: if(compensation_cnt == 2'd0) next = STATE_NEXT_BLOCK;
+											  else                         next = STATE_COMPENSATION;
 													
 			STATE_MACROBLOCK_TYPE           : next = STATE_MACROBLOCK_QUANT;
 			
@@ -344,6 +362,10 @@ module video(
 			STATE_DCT_NON_INTRA_FIRST       : advance = dct_coefficient_escape ? 5'd12 : dct_non_intra_first_coefficient_0_decoded[15:11];
 			STATE_DCT_SUBS_B14              : advance = dct_coefficient_escape ? 5'd12 : dct_coefficient_0_decoded[15:11];
         	STATE_DCT_ESCAPE_B14            : advance = extended_dct_escape ? 5'd16 : 5'd8;
+			STATE_SKIP0						: advance = 5'd21;
+			STATE_SKIP1                     : advance = 5'd8;
+			STATE_SKIP_CHECK                : advance = 5'd0;
+			STATE_COMPENSATION 				: advance = 5'd0;
 			STATE_SEQUENCE_END              : advance = 5'd0;
 			STATE_ERROR                     : advance = 5'd0;
 			default                           advance = 5'd0;
@@ -432,13 +454,14 @@ module video(
 	//sign_type
 	always @(posedge clk)
 		if(~rst) sign_type <= 7'h0;
+		else if (module_en && state == STATE_SKIP0)              sign_type <= 7'b0_000100;
 		else if (module_en && state == STATE_MACROBLOCK_QUANT)	 sign_type <= 7'b1_000000;
 		else if (module_en && state == STATE_NEXT_BLOCK )        sign_type <= { sign_type[0], sign_type[6:1]};
 		else                                                     sign_type <= sign_type;
 	
 	always @(posedge clk)
 		if(~rst) 			group_change <= 1'b0;
-		else if (module_en)	group_change <= state == STATE_NEXT_BLOCK;
+		else if (module_en)	group_change <= state == STATE_NEXT_BLOCK || state == STATE_COMPENSATION;
 		else				group_change <= 1'b0;
 		
 	//macroblock_end
@@ -525,27 +548,32 @@ module video(
 	 
 	/* macroblock type */
   	always @(posedge clk)
-    	if (~rst) macroblock_quant <= 1'b0;
+    	if (~rst)                                               macroblock_quant <= 1'b0;
+		else if (module_en && state == STATE_SKIP0)             macroblock_quant <= 1'b0;
     	else if (module_en && (state == STATE_MACROBLOCK_TYPE)) macroblock_quant <= macroblock_type_value[5];
-    	else macroblock_quant <= macroblock_quant;
+    	else                                                    macroblock_quant <= macroblock_quant;
 
   	always @(posedge clk)
-    	if (~rst) macroblock_motion_forward <= 1'b0;
+    	if (~rst)                                               macroblock_motion_forward <= 1'b0;
+		else if (module_en && state == STATE_SKIP0)             macroblock_motion_forward <= 1'b0;
     	else if (module_en && (state == STATE_MACROBLOCK_TYPE)) macroblock_motion_forward <= macroblock_type_value[4];
-    	else macroblock_motion_forward <= macroblock_motion_forward;
+    	else                                                    macroblock_motion_forward <= macroblock_motion_forward;
 
   	always @(posedge clk)
-    	if (~rst) macroblock_motion_backward <= 1'b0;
-      else if (module_en && (state == STATE_MACROBLOCK_TYPE)) macroblock_motion_backward <= macroblock_type_value[3];
-      else macroblock_motion_backward <= macroblock_motion_backward;
+    	if (~rst)                                               macroblock_motion_backward <= 1'b0;
+		else if (module_en && state == STATE_SKIP0)             macroblock_motion_backward <= 1'b0;           
+		else if (module_en && (state == STATE_MACROBLOCK_TYPE)) macroblock_motion_backward <= macroblock_type_value[3];
+		else                                                    macroblock_motion_backward <= macroblock_motion_backward;
 
   	always @(posedge clk)
     	if (~rst) macroblock_pattern <= 1'b0;
+		else if (module_en && state == STATE_SKIP0)             macroblock_pattern <= 1'b0;
     	else if (module_en && (state == STATE_MACROBLOCK_TYPE)) macroblock_pattern <= macroblock_type_value[2];
     	else macroblock_pattern <= macroblock_pattern;
 
   	always @(posedge clk)
     	if (~rst) macroblock_intra <= 1'b0;
+		else if (module_en && state == STATE_SKIP0)             macroblock_intra <= 1'b1;
     	else if (module_en && (state == STATE_MACROBLOCK_TYPE)) macroblock_intra <= macroblock_type_value[1];
     	else macroblock_intra <= macroblock_intra;
 
@@ -587,6 +615,8 @@ module video(
 	/* coded block pattern */
   	always @(posedge clk) // // par. 6.3.17.4
     	if (~rst) coded_block_pattern <= 6'b0;
+		else if (module_en && state == STATE_SKIP0)                                       coded_block_pattern <= 6'b110000;
+		else if (module_en && state == STATE_SKIP1)                                       coded_block_pattern <= 6'b000000;
 		else if (module_en && (state == STATE_MACROBLOCK_QUANT) && macroblock_intra)      coded_block_pattern <= 6'b111111;
 		else if (module_en && (state == STATE_MACROBLOCK_QUANT) )					      coded_block_pattern <= 6'b000000;
     	else if (module_en && (state == STATE_CODED_BLOCK_PATTERN) && macroblock_pattern) coded_block_pattern <= coded_block_pattern_value;
@@ -601,6 +631,12 @@ module video(
 		else dct_dc_size <= dct_dc_size;
 		
 	assign module_en = clk_en && vld_en;
+	
+	always @(posedge clk)
+		if(~rst) compensation_cnt <= 2'd3;
+		else if(module_en && state == STATE_COMPENSATION) compensation_cnt <= compensation_cnt - 1;
+		else if(module_en)                                compensation_cnt <= compensation_cnt;
+		else                                              compensation_cnt <= compensation_cnt;
 
 //debug
 
@@ -766,11 +802,11 @@ endmodule
 
  */
 
-module loadreg #(parameter offset=0, width=8, fsm_state = 5'h1f) (
+module loadreg #(parameter offset=0, width=8, fsm_state = 6'h1f) (
    input                  clk,
    input                  clk_en,
    input                  rst,
-   input             [4:0]state,
+   input             [5:0]state,
    input            [23:0]getbits,
    output reg  [width-1:0]fsm_reg
    );
