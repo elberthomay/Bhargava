@@ -23,7 +23,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module bhargava_test(
+module bhargava_test_slow(
 
     );
 	reg clk_en, rst_n_200, rst_n_300, rst_n;
@@ -35,6 +35,8 @@ module bhargava_test(
 	
 	wire       mpeg_prog_full;
 	
+	reg [9:0]clk_cnt;
+	reg data_pulse;
 	reg clk, clk2x;
 	
 	integer down_time = 0;
@@ -75,6 +77,18 @@ module bhargava_test(
 	//clk
 	initial clk2x = 1'b1;
 	always #10 clk2x = ~clk2x;
+	
+	//clk_cnt
+	always @(posedge clk)
+		if(~rst_n_200) clk_cnt <= 10'd0;
+		else           clk_cnt <= clk_cnt + 1;
+	
+	//data_pulse
+	initial data_pulse = 1'b0;
+	always @(posedge clk)
+		if(~rst_n_200)                    data_pulse <= 1'b0;
+		else if(clk_cnt == 10'd1023) data_pulse <= 1'b1;
+		else                              data_pulse <= 1'b0;
 	
 	//clk_en
 	initial clk_en = 1'b1;
@@ -122,7 +136,7 @@ module bhargava_test(
 	
 	//file
 	initial begin
-		file = $fopen("dats/bjork_snippet.mpg", "rb");	//bjork_snippet5
+		file = $fopen("dats/bjork_chunk.mpg", "rb");	//bjork_snippet5
 		if (!file) begin
 			$error("could not read file");
 			$stop;
@@ -131,10 +145,8 @@ module bhargava_test(
 	end
 	
 	//mpeg_in and mpeg_in_en
-	
-	
 	always @(posedge clk) begin
-		if(rst_n_200 && ~mpeg_prog_full && in_cnt < r)begin	//47519745 7724 1494 1640
+		if(rst_n_200 && ~mpeg_prog_full && data_pulse && in_cnt < r)begin	//47519745 7724 1494 1640
 			mpeg_in <= mem[in_cnt];
 			mpeg_in_en <= 1'b1;
 			in_cnt = in_cnt + 1;

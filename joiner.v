@@ -1,34 +1,26 @@
 module joiner (
 	clk, clk_en, rst, 
 	vid_in, vid_empty,
-	misc_in, misc_empty,
+	misc_in, misc_empty, output_afull,
 	vid_rd, misc_rd, mpeg_out, mpeg_wr);
 	
 	input clk;
 	input clk_en;
 	input rst;								// synchronous active low reset;
 	
-	input      [7:0] vid_in;					// mpeg stream output
-	input            vid_empty;						// assert high if stream_out is valid;
+	input      [7:0] vid_in;
+	input            vid_empty;
 	
-	input      [7:0] misc_in;					// mpeg stream output
-	input            misc_empty;						// assert high if stream_out is valid;
+	input      [7:0] misc_in;
+	input            misc_empty;				
+	
+	input            output_afull;
 
 	output           vid_rd;
 	output           misc_rd;
 	
-	output reg [7:0] mpeg_out;					// video stream output enable
+	output reg [7:0] mpeg_out;				// mpeg output
 	output reg       mpeg_wr;
-	
-	/*
-	input [7:0] stream_in;					// mpeg stream input
-	input stream_valid;						// assert high if stream_in is valid;
-
-	output reg [7:0] stream_out;			// mpeg stream output;
-	
-	output reg vid_out_en;					// video stream output enable
-	output reg misc_out_en;					// non video stream output enable;
-	*/
 
 	
 	reg              vid_ready;
@@ -91,6 +83,7 @@ module joiner (
 	end
 	
 	wire next_mpeg_wr = (state == STATE_VIDEO_STREAM)? vid_ready : misc_ready;
+	
 	// state
 	always @(posedge clk) begin
 		if(~rst)                        state <= STATE_NON_PACK;
@@ -102,37 +95,37 @@ module joiner (
 
 	//mpeg_out
 	always @(posedge clk)
-		if(clk_en) mpeg_out <= next_mpeg_out;
-		else       mpeg_out <= mpeg_out;
+		if(~rst)        mpeg_out <= 8'h0;
+		else if(clk_en) mpeg_out <= next_mpeg_out;
+		else            mpeg_out <= mpeg_out;
 		
 	//mpeg_wr
 	always @(posedge clk)
-		if(~rst)        mpeg_wr <= 1'b0;
-		else if(clk_en) mpeg_wr <= next_mpeg_wr;
-		else            mpeg_wr <= mpeg_wr;
+		if(~rst) mpeg_wr <= 1'b0;
+		else     mpeg_wr <= module_en;
 		
 	//vid_ready
 	always @(posedge clk)
 		if(~rst)        vid_ready <= 1'b0;
-		else if(clk_en) vid_ready <= (vid_ready && state != STATE_VIDEO_STREAM) || (vid_rd && ~vid_empty);
+		else if(clk_en) vid_ready <= (vid_ready && (output_afull || state != STATE_VIDEO_STREAM)) || (vid_rd && ~vid_empty);
 		else            vid_ready <= vid_ready;
 	
 	//misc_ready
 	always @(posedge clk)
 		if(~rst)        misc_ready <= 1'b0;
-		else if(clk_en) misc_ready <= (misc_ready && state == STATE_VIDEO_STREAM) || (misc_rd && ~misc_empty);
+		else if(clk_en) misc_ready <= (misc_ready && (output_afull || state == STATE_VIDEO_STREAM)) || (misc_rd && ~misc_empty);
 		else            misc_ready <= misc_ready;
 	
 	//vid_rd
-	assign vid_rd = ~vid_ready || state == STATE_VIDEO_STREAM;
+	assign vid_rd = ~vid_empty && clk_en && (~vid_ready || (~output_afull && state == STATE_VIDEO_STREAM));
 		
 	//misc_rd
-	assign misc_rd = ~misc_ready || state != STATE_VIDEO_STREAM;
+	assign misc_rd = ~misc_empty && clk_en &&(~misc_ready || (~output_afull && state != STATE_VIDEO_STREAM));
 
 	// header_reg
 	always @(posedge clk) begin
 		if(~rst) header_reg <= 24'hFFFFFF;
-		else if (next_mpeg_wr) header_reg <= { header_reg[15:0], next_mpeg_out };
+		else if (module_en) header_reg <= { header_reg[15:0], next_mpeg_out };
 		else header_reg <= header_reg;
 	end
 	
@@ -141,7 +134,7 @@ module joiner (
 	// packet_counter
 	always @(posedge clk) begin
 		if(~rst) packet_counter <= 16'h0;
-		else if(next_mpeg_wr) begin
+		else if(module_en) begin
 		    casez(state)
 		       STATE_NON_PACK                              : if( header_reg == 24'h000001 && misc_in == 8'hBA) packet_counter <= 16'h8;
     		    STATE_NON_VIDEO_SIZE0, STATE_VIDEO_SIZE0    : packet_counter[15:8] <= misc_in;
@@ -155,7 +148,7 @@ module joiner (
 	// timestamp_counter
 	always @(posedge clk) begin
 		if(~rst) timestamp_counter <= 8'h0;
-		else if(next_mpeg_wr) begin
+		else if(module_en) begin
 		    if ( state == STATE_VIDEO_TIMESTAMP_HEADER && misc_in[7:6] == 2'b00 ) begin
 			    casez(misc_in[5:4])
 				    2'b10 : timestamp_counter <= 8'h4;
@@ -168,4 +161,6 @@ module joiner (
 		end
 		else timestamp_counter <= timestamp_counter;
 	end
+	
+	assign module_en = clk_en && ~output_afull && ((state == STATE_VIDEO_STREAM)? vid_ready : misc_ready);
 endmodule

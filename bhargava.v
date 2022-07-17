@@ -1,5 +1,5 @@
-//`undef DES
-`define DES 1
+`undef DES
+//`define DES 1
 `undef DEBUG
 //`define DEBUG 1
 module bhargava(
@@ -7,20 +7,24 @@ module bhargava(
 	
 	input clk_en,
 	
-	input rst,
+	input rst_n_200,
+	input rst_n_300,
 	
 	input [7:0]  mpeg_in,
 	input        mpeg_in_en,
+	output       mpeg_prog_full, 
 	input        stream_end,
-`ifdef DES
+
+	
+	output [7:0] mpeg_out,
+	input        mpeg_rd,
+	output       mpeg_empty,
+	
+	`ifdef DES
 	input [63:0] key_in, 
 	input        mode_in,  
 	input        key_en, 
-`endif
-	
-	output [7:0] mpeg_out,
-	output       mpeg_out_en,
-	output       mpeg_prog_full, 
+	`endif
 	
 	`ifdef DEBUG
 	input        clk,
@@ -39,17 +43,20 @@ module bhargava(
 	output post_unscr_ser_sign_bit
 	
 	`else
-	input clk_p,
-	input clk_n
+	input clk_200,
+	input clk_300
 	`endif
 	
 );
 
+	`ifdef DEBUG
 	//wire clk
 	wire clk_200;
-	wire clk_400;
+	wire clk_300;
+	`endif
 	
-	wire rst_n;
+	wire rst_200;
+	wire rst_300;
 	
 	wire [7:0]   mpeg_fifo_dout;
 	wire         mpeg_fifo_empty;
@@ -198,7 +205,12 @@ module bhargava(
 	wire         joiner_vid_rd;
 	wire         joiner_misc_rd;
 	
-	assign rst_n = ~rst;
+	wire         output_fifo_afull;
+	
+	assign rst_200 = ~rst_n_200;
+	assign rst_300 = ~rst_n_300;
+	
+	
 `ifndef DES
 	assign des_out = dese64_sign_out;
 	assign des_busy = 1'b0;
@@ -213,100 +225,92 @@ module bhargava(
 	
 	`ifdef DEBUG
 	assign clk_200 = clk;
-	assign clk_400 = clk2x;
+	assign clk_300 = clk2x;
 	assign vlc_sign_bit = video_sign_bit;
 	assign mb_ser_sign_bit = mb_ser_sign_out;
 	assign post_des_ser_sign_bit = post_des_ser_sign_out;
 	assign post_unscr_ser_sign_bit = post_unscr_ser_bit_out;
-	`else
-	clk_wiz_400 clk_wiz_400_inst(
-		.clk_in1_p(clk_p),
-		.clk_in1_n(clk_n),
-		.clk_200(clk_200),
-		.clk_400(clk_400),
-		.reset(rst)
-	);
 	`endif
 	
 	`ifdef DEBUG
 	always @(posedge clk)
-		if(~rst_n)               vid_cnt <= 32'h0;
+		if(~rst_n_200)               vid_cnt <= 32'h0;
 		else if(splitter_vid_wr) vid_cnt <= vid_cnt + 1;
 		else                     vid_cnt <= vid_cnt;
 	
 	always @(posedge clk)
-		if(~rst_n)                misc_in_cnt <= 32'h0;
+		if(~rst_n_200)                misc_in_cnt <= 32'h0;
 		else if(splitter_misc_wr) misc_in_cnt <= misc_in_cnt + 1;
 		else                      misc_in_cnt <= misc_in_cnt;
 
 	always @(posedge clk)
-		if(~rst_n)                      			 vbuf_out_cnt <= 32'h0;
+		if(~rst_n_200)                      			 vbuf_out_cnt <= 32'h0;
 		else if(getbits_vbuf_rd && ~vbuf_fifo_empty) vbuf_out_cnt <= vbuf_out_cnt + 8;
 		else                            			 vbuf_out_cnt <= vbuf_out_cnt;
 	
 	always @(posedge clk)
-		if(~rst_n)         	     vlc_cnt_bit <= 31'h0;
+		if(~rst_n_200)         	     vlc_cnt_bit <= 31'h0;
 		else if(video_align_reg) vlc_cnt_bit <= { vlc_cnt_bit[31:3] + 1, 3'h0};
 		else                     vlc_cnt_bit <= vlc_cnt_bit + video_advance_reg;
 	
 	always @(posedge clk)
-		if(~rst_n)                     ex_cnt_cnt <= 32'h0;
+		if(~rst_n_200)                     ex_cnt_cnt <= 32'h0;
 		else if(extend_counter_cnt_wr) ex_cnt_cnt <= ex_cnt_cnt + extend_counter_cnt_out[6:0];
 		else                           ex_cnt_cnt <= ex_cnt_cnt;
 	
 	always @(posedge clk)
-		if(~rst_n)                   sign_cnt_cnt <= 32'h0;
+		if(~rst_n_200)                   sign_cnt_cnt <= 32'h0;
 		else if(sign_counter_cnt_wr) sign_cnt_cnt <= sign_cnt_cnt + sign_counter_cnt_out[6:0];
 		else                         sign_cnt_cnt <= sign_cnt_cnt;
 		
 	always @(posedge clk)
-		if(~rst_n)                          sign_switch_cnt <= 32'd0;
+		if(~rst_n_200)                          sign_switch_cnt <= 32'd0;
 		else if(sign_switcher_count_out_wr) sign_switch_cnt <= sign_switch_cnt + sign_switcher_count_out[6:0];
 		else                                sign_switch_cnt <= sign_switch_cnt;
 	
 	always @(posedge clk2x)
-		if(~rst_n)                     replacer_sign_cnt <= 32'h0;
+		if(~rst_n_300)                     replacer_sign_cnt <= 32'h0;
 		else if(replacer_sign_data_wr) replacer_sign_cnt <= replacer_sign_cnt + 1;
 		else                           replacer_sign_cnt <= replacer_sign_cnt;
 		
 	always @(posedge clk2x)
-		if(~rst_n)                       replacer_extend_cnt <= 32'h0;
+		if(~rst_n_300)                       replacer_extend_cnt <= 32'h0;
 		else if(replacer_extend_data_wr) replacer_extend_cnt <= replacer_extend_cnt + 1;
 		else                             replacer_extend_cnt <= replacer_extend_cnt;
 	
 	always @(posedge clk)
-		if(~rst_n)             vlc_sign_cnt <= 32'd0;
+		if(~rst_n_200)             vlc_sign_cnt <= 32'd0;
 		else if(video_sign_en) vlc_sign_cnt <= vlc_sign_cnt + 1;
 		else                   vlc_sign_cnt <= vlc_sign_cnt;
 	
 	always @(posedge clk)
-		if(~rst_n)              collator_sign_cnt <= 32'd0;
+		if(~rst_n_200)              collator_sign_cnt <= 32'd0;
 		else if(collator_mb_wr) collator_sign_cnt <= collator_sign_cnt + collator_scrambled_count;
 		else                    collator_sign_cnt <= collator_sign_cnt;
 
 	always @(posedge clk2x)
-		if(~rst_n)             mb_ser_sign_cnt <= 32'd0;
+		if(~rst_n_300)             mb_ser_sign_cnt <= 32'd0;
 		else if(mb_ser_out_wr) mb_ser_sign_cnt <= mb_ser_sign_cnt + 1;
 		else                   mb_ser_sign_cnt <= mb_ser_sign_cnt;	
 		
 	always @(posedge clk2x)
-		if(~rst_n)                     dese64_sign_cnt <= 32'd0;
+		if(~rst_n_300)                     dese64_sign_cnt <= 32'd0;
 		else if(dese64_des_wr)         dese64_sign_cnt <= dese64_sign_cnt + 64;
 		else if(post_des_ser_last_ack) dese64_sign_cnt <= dese64_sign_cnt + dese64_size_out;
 		else                           dese64_sign_cnt <= dese64_sign_cnt;
 		
 	always @(posedge clk2x)
-		if(~rst_n)                    post_des_sign_cnt <= 32'd0;
+		if(~rst_n_300)                    post_des_sign_cnt <= 32'd0;
 		else if(post_des_ser_sign_en) post_des_sign_cnt <= post_des_sign_cnt + 1;
 		else                          post_des_sign_cnt <= post_des_sign_cnt;
 		
 	always @(posedge clk2x)
-		if(~rst_n)              unscrambler_sign_cnt <= 32'd0;
+		if(~rst_n_300)              unscrambler_sign_cnt <= 32'd0;
 		else if(unscrambler_wr) unscrambler_sign_cnt <= unscrambler_sign_cnt + unscrambler_size;
 		else                    unscrambler_sign_cnt <= unscrambler_sign_cnt;
 	
 	always @(posedge clk2x)
-		if(~rst_n)                     post_unscr_ser_sign_cnt <= 32'd0;
+		if(~rst_n_300)                     post_unscr_ser_sign_cnt <= 32'd0;
 		else if(post_unscr_ser_bit_wr) post_unscr_ser_sign_cnt <= post_unscr_ser_sign_cnt + 1;
 		else                           post_unscr_ser_sign_cnt <= post_unscr_ser_sign_cnt;
 		
@@ -327,7 +331,7 @@ module bhargava(
 	
 	mpeg_fifo mpeg_fifo_inst(
         .clk(clk_200),
-		.srst(rst),
+		.srst(rst_200),
 		
         .din(mpeg_in),
 		.wr_en(mpeg_in_en),
@@ -341,7 +345,7 @@ module bhargava(
 	splitter splitter_inst(
 		.clk(clk_200),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_200),
 		
 		.stream_in(mpeg_fifo_dout),
 		.stream_empty(mpeg_fifo_empty),
@@ -366,17 +370,17 @@ module bhargava(
 		//.almost_full(vid_fifo_afull),
 		.prog_full(vid_fifo_afull),
 		
-		.rd_clk(clk_400),
+		.rd_clk(clk_300),
 		.dout(vid_fifo_dout),
 		.rd_en(replacer_sign_vid_rd),
 		.empty(vid_fifo_empty),
 		
-		.rst(rst)
+		.rst(rst_200)
 	);
 	
 	misc_fifo misc_fifo_inst(
         .clk(clk_200),
-		.srst(rst),
+		.srst(rst_200),
 		
         .din(splitter_stream_out),
 		.wr_en(splitter_misc_wr),
@@ -390,7 +394,7 @@ module bhargava(
 	video_extender extender_inst(
 		.clk(clk_200),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_200),
 		.stream_end(splitter_stream_end),
 		
 		.vbuf_in(splitter_stream_out),
@@ -403,7 +407,7 @@ module bhargava(
 		
 	vbuf_fifo vbuf(
         .clk(clk_200),
-        .srst(rst),
+        .srst(rst_200),
 		
         .din(extender_out),
 		.wr_en(extender_wr_out),
@@ -417,7 +421,7 @@ module bhargava(
   getbits getbits_inst
        (.clk(clk_200),
         .clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_200),
 		
         .vid_in(vbuf_fifo_dout),
         .vid_in_empty(vbuf_fifo_empty),
@@ -438,7 +442,7 @@ module bhargava(
 	video video_inst(
 		.clk(clk_200),
         .clk_en(clk_en),
-        .rst(rst_n),
+        .rst(rst_n_200),
 		
 		.getbits(getbits_out),
 		.vld_en(getbits_vld_en),
@@ -463,7 +467,7 @@ module bhargava(
 	collator collator_inst(
 		.clk(clk_200), 
 		.clk_en(clk_en), 
-		.rst(rst_n), 
+		.rst(rst_n_200), 
 		.sign_en(video_sign_en), 
 		.sign_bit(video_sign_bit), 
 		.group_change(video_group_change), 
@@ -487,16 +491,16 @@ module bhargava(
 		//.almost_full(mb_fifo_afull),
 		.prog_full(mb_fifo_afull),
 		
-		.rd_clk(clk_400),
+		.rd_clk(clk_300),
         .dout(mb_fifo_dout),
         .rd_en(mb_ser_mb_rd), 
         .empty(mb_fifo_empty),
-        .rst(rst)
+        .rst(rst_200)
 	);
 	
 	mb_conf_fifo mb_conf_fifo_inst(
         .clk(clk_200),
-        .srst(rst),
+        .srst(rst_200),
 		
         .din( {collator_mb_conf, collator_first_group, collator_has_one_group} ),
 		.wr_en(collator_mb_conf_wr),
@@ -511,9 +515,9 @@ module bhargava(
 	*sign path
 	****************************************/
 	mb_ser mb_ser_inst(
-		.clk(clk_400), 
+		.clk(clk_300), 
 		.clk_en(clk_en), 
-		.rst(rst_n),
+		.rst(rst_n_300),
     
 		.sign_in(mb_fifo_dout[456:393]),
 		.pos_in(mb_fifo_dout[392:9]),
@@ -534,8 +538,8 @@ module bhargava(
 	);
 	
 	bitpos_fifo bitpos_fifo_inst(
-        .clk(clk_400),
-        .rst(rst),
+        .clk(clk_300),
+        .rst(rst_300),
 		
         .din(mb_ser_bitpos_out),
 		.wr_en(mb_ser_out_wr),
@@ -548,9 +552,9 @@ module bhargava(
 	);
 	
 	dese64 dese64_inst(
-		.clk(clk_400),
+		.clk(clk_300),
 		.clk_en(clk_en),
-		.rst(rst_n), 
+		.rst(rst_n_300), 
 		
 		.sign_in(mb_ser_sign_out),
 		.sign_wr(mb_ser_out_wr),
@@ -564,9 +568,9 @@ module bhargava(
 	);
 `ifdef DES
 	DES_single des(
-		.clk(clk_400),  
+		.clk(clk_300),  
 		.clk_en(clk_en),  
-		.rst(rst_n), 
+		.rst(rst_n_300), 
 		.data_in(dese64_sign_out),  
 		.data_en(dese64_des_wr), 
 		.key_in(key_in), 
@@ -579,9 +583,9 @@ module bhargava(
 `endif
 	
 	post_des_ser pos_des_ser_inst(
-		.clk(clk_400),
+		.clk(clk_300),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_300),
 		
 		.des_in(des_out),
 		.des_busy(des_busy),
@@ -595,9 +599,9 @@ module bhargava(
 	);
 	
 	unscrambler unscrambler_inst(
-		.clk(clk_400),
+		.clk(clk_300),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_300),
 		
 		.sign_in(post_des_ser_sign_out),
 		.sign_en(post_des_ser_sign_en),
@@ -610,8 +614,8 @@ module bhargava(
 	);
 	
 	unscrambled_fifo unscrambled_fifo_inst(
-        .clk(clk_400),
-        .srst(rst),
+        .clk(clk_300),
+        .srst(rst_300),
 		
         .din( {unscrambler_out, unscrambler_size} ),
 		.wr_en(unscrambler_wr),
@@ -622,9 +626,9 @@ module bhargava(
 	);
 	
 	post_unscr_ser post_unscr_ser_inst(
-		.clk(clk_400),
+		.clk(clk_300),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_300),
 		
 		.data_in(unscrambled_fifo_dout[70:7]),
 		.size_in(unscrambled_fifo_dout[6:0]),
@@ -636,8 +640,8 @@ module bhargava(
 	);
 	
 	bit_fifo bit_fifo_inst(
-		.clk(clk_400),
-        .rst(rst),
+		.clk(clk_300),
+        .rst(rst_300),
 		
         .din(post_unscr_ser_bit_out),
 		.wr_en(post_unscr_ser_bit_wr),
@@ -656,7 +660,7 @@ module bhargava(
 	extend_counter extend_counter_inst(
 		.clk(clk_200), 
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_200),
 		.advance(video_advance_reg),
 		.align(video_align_reg),
 		.extend_en(video_extend_en),
@@ -672,17 +676,17 @@ module bhargava(
 		//.almost_full(extend_counter_fifo_afull),
 		.prog_full(extend_counter_fifo_afull),
 		
-		.rd_clk(clk_400),
+		.rd_clk(clk_300),
 		.dout(extend_counter_fifo_dout),
 		.rd_en(replacer_extend_cnt_rd),
 		.empty(extend_counter_fifo_empty),
-		.rst(rst)
+		.rst(rst_200)
 	);
 	
 	sign_counter sign_counter_inst(
 		.clk(clk_200),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_200),
 		.advance(video_advance_reg),
 		.align(video_align_reg),
 		.sign_en(video_sign_en),
@@ -694,7 +698,7 @@ module bhargava(
 	
 	sign_counter_fifo sign_counter_fifo_inst(
 		.clk(clk_200),
-		.srst(rst),
+		.srst(rst_200),
 		
 		.din(sign_counter_cnt_out),
 		.wr_en(sign_counter_cnt_wr),
@@ -708,7 +712,7 @@ module bhargava(
 	sign_switcher sign_switcher_inst(
 		.clk(clk_200),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_200),
 		
 		.mb_conf(mb_conf_fifo_dout[94:4]),
 		.first_group(mb_conf_fifo_dout[3:1]),
@@ -732,17 +736,17 @@ module bhargava(
 		//.almost_full(count_out_fifo_afull),
 		.prog_full(count_out_fifo_afull),
 		
-		.rd_clk(clk_400),
+		.rd_clk(clk_300),
 		.dout(count_out_fifo_dout),
 		.rd_en(replacer_sign_cnt_rd),
 		.empty(count_out_fifo_empty),
-		.rst(rst)
+		.rst(rst_200)
 	);
 	
 	replacer_sign replacer_sign_inst(
-		.clk(clk_400),
+		.clk(clk_300),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_300),
 		
 		.vid_in(vid_fifo_dout),
 		.cnt_in(count_out_fifo_dout),
@@ -762,8 +766,8 @@ module bhargava(
 	);
 	
 	replacer_fifo replacer_fifo_inst(
-		.clk(clk_400),
-		.srst(rst),
+		.clk(clk_300),
+		.srst(rst_300),
 		
 		.din({replacer_sign_last_sign_out, replacer_sign_data_out}),
 		.wr_en(replacer_sign_data_wr),
@@ -775,9 +779,9 @@ module bhargava(
 	);
 	
 	replacer_extend replacer_extend_inst(
-		.clk(clk_400),
+		.clk(clk_300),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_300),
 		
 		.vid_in(replacer_fifo_dout[7:0]),
 		.cnt_in(extend_counter_fifo_dout),
@@ -793,7 +797,7 @@ module bhargava(
 	);
 	
 	processed_vid_fifo processed_vid_fifo_inst(
-		.wr_clk(clk_400),
+		.wr_clk(clk_300),
 		.din(replacer_extend_data_out),
 		.wr_en(replacer_extend_data_wr),
 		//.almost_full(processed_vid_fifo_afull),
@@ -804,24 +808,37 @@ module bhargava(
 		.rd_en(joiner_vid_rd),
 		.empty(processed_vid_fifo_empty),
 		
-		.rst(rst)
+		.rst(rst_200)
 	);
 	
 	joiner joiner_inst(
 		.clk(clk_200),
 		.clk_en(clk_en),
-		.rst(rst_n),
+		.rst(rst_n_200),
 		
 		.vid_in(processed_vid_fifo_dout),
 		.vid_empty(processed_vid_fifo_empty),
 		.misc_in(misc_fifo_dout),
 		.misc_empty(misc_fifo_empty),
+		.output_afull(output_fifo_afull),
 		
 		.vid_rd(joiner_vid_rd),
 		.misc_rd(joiner_misc_rd),
 		
-		.mpeg_out(mpeg_out),
-		.mpeg_wr(mpeg_out_en)
+		.mpeg_out(joiner_mpeg_out),
+		.mpeg_wr(joiner_mpeg_wr)
+	);
+	
+	output_fifo output_fifo_inst(
+		.clk(clk_200), 
+		.din(joiner_mpeg_out),
+		.wr_en(joiner_mpeg_wr),
+		.almost_full(output_fifo_afull),
+		
+		.dout(mpeg_out), 
+		.rd_en(mpeg_rd), 
+		.empty(mpeg_empty), 
+		.srst(rst_200)
 	);
 
 endmodule
