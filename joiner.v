@@ -86,18 +86,18 @@ module joiner (
 	
 	// state
 	always @(posedge clk) begin
-		if(~rst)                        state <= STATE_NON_PACK;
-		else if(clk_en && next_mpeg_wr) state <= next;
-		else                            state <= state;
+		if(~rst)                           state <= STATE_NON_PACK;
+		else if(module_en && next_mpeg_wr) state <= next;
+		else                               state <= state;
 	end
 	
 	wire [7:0] next_mpeg_out = (state == STATE_VIDEO_STREAM)? vid_in : misc_in;
 
 	//mpeg_out
 	always @(posedge clk)
-		if(~rst)        mpeg_out <= 8'h0;
-		else if(clk_en) mpeg_out <= next_mpeg_out;
-		else            mpeg_out <= mpeg_out;
+		if(~rst)           mpeg_out <= 8'h0;
+		else if(module_en) mpeg_out <= next_mpeg_out;
+		else               mpeg_out <= mpeg_out;
 		
 	//mpeg_wr
 	always @(posedge clk)

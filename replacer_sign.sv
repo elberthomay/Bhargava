@@ -83,7 +83,7 @@ module replacer_sign(
 	//sign_ready
 	always_ff @(posedge clk)
 		if(~rst)           sign_ready <= 1'b0;
-		else if(module_en) sign_ready <= sign_rd || (sign_ready && ~has_sign);
+		else if(module_en) sign_ready <= sign_rd || (sign_ready && ~(has_sign && cnt_reg_ready));
 		else               sign_ready <= sign_ready;
 	
 	
@@ -154,9 +154,9 @@ module replacer_sign(
 		
 	//last_sign_out
 	always_ff @(posedge clk)
-		if(~rst)                                     last_sign_out <= 1'b0;
-		else if(module_en && sign_ready && has_sign) last_sign_out <= sign_in;
-		else                                         last_sign_out <= last_sign_out;
+		if(~rst)                                                        last_sign_out <= 1'b0;
+		else if(module_en && sign_ready && (has_sign && cnt_reg_ready)) last_sign_out <= sign_in;
+		else                                                            last_sign_out <= last_sign_out;
 		
 	assign module_en = clk_en && ~out_afull;
 	assign next_data_wr = vid_reg_ready && cnt_reg_ready && cnt_reg >= next_decrement && (~has_sign || sign_ready);
@@ -164,6 +164,6 @@ module replacer_sign(
 		
 	assign vid_rd = (~vid_ready || ~vid_reg_ready || next_data_wr) && ~vid_empty && module_en;
 	assign cnt_rd = (~cnt_ready || ~cnt_reg_ready || cnt_reg_use) && ~cnt_empty && module_en;
-	assign sign_rd = (~sign_ready || has_sign) && ~sign_empty && module_en;
+	assign sign_rd = (~sign_ready || (has_sign && cnt_reg_ready)) && ~sign_empty && module_en;
 		
 endmodule

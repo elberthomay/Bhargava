@@ -1,5 +1,5 @@
-`undef DES
-//`define DES 1
+//`undef DES
+`define DES 1
 
 `timescale 1ns/1ns
 //////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +136,7 @@ module bhargava_test_slow(
 	
 	//file
 	initial begin
-		file = $fopen("dats/bjork_chunk.mpg", "rb");	//bjork_snippet5
+		file = $fopen("dats/des_out.mpg", "rb");	//bjork_snippet5
 		if (!file) begin
 			$error("could not read file");
 			$stop;
@@ -164,15 +164,15 @@ module bhargava_test_slow(
 		if(mpeg_prog_full) down_time = down_time + 1;
 	
 	//mpeg_rd
-	assign mpeg_rd = ~mpeg_empty;
+	assign mpeg_rd = ~mpeg_ready && ~mpeg_empty;
 	
 	//mpeg_ready
-	always @(posedge clk) mpeg_ready <= mpeg_rd;
+	always @(posedge clk) mpeg_ready <= mpeg_rd || (mpeg_ready && ~data_pulse);
 	
 	//mpeg_out
 `ifdef DES
 	initial begin
-		file_out = $fopen("dats/des_out.mpg", "wb");
+		file_out = $fopen("dats/des_res.mpg", "wb");
 		if (!file_out) begin
 			$error("could not open file");
 			$stop;
@@ -180,7 +180,7 @@ module bhargava_test_slow(
 	end
 	
 	always @(posedge clk) begin
-		if(mpeg_ready) begin
+		if(mpeg_ready && data_pulse) begin
 			$fwrite(file_out, "%c", mpeg_out);
 			out_cnt = out_cnt + 1;
 			if(out_cnt == in_cnt && out_cnt != 0) $fclose(file_out);
@@ -188,7 +188,7 @@ module bhargava_test_slow(
 	end
 `else
 	always @(posedge clk) begin
-		if(mpeg_ready)begin	
+		if(mpeg_ready && data_pulse)begin	
 			if(mpeg_out != mem[out_cnt])begin
 				$display("error at byte %d", out_cnt);
 				$stop;

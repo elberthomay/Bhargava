@@ -1,5 +1,5 @@
-`undef DES
-//`define DES 1
+//`undef DES
+`define DES 1
 `undef DEBUG
 //`define DEBUG 1
 module bhargava(

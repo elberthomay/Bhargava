@@ -76,7 +76,7 @@ module replacer_extend(
 	always_ff @(posedge clk)
 		//if(~rst) has_extend <= 1'b0;
 		if(module_en && (~cnt_reg_ready || cnt_reg_use) ) has_extend <= cnt_in[7];
-		else if(module_en)                                has_extend <= 1'b0;
+		else if(module_en && vid_ready && cnt_reg_ready)  has_extend <= 1'b0;
 		else                                              has_extend <= has_extend;
 		
 	//cnt_reg
