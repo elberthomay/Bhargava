@@ -35,7 +35,7 @@ module bhargava_test_slow(
 	
 	wire       mpeg_prog_full;
 	
-	reg [9:0]clk_cnt;
+	reg [6:0]clk_cnt;
 	reg data_pulse;
 	reg clk, clk2x;
 	
@@ -80,14 +80,14 @@ module bhargava_test_slow(
 	
 	//clk_cnt
 	always @(posedge clk)
-		if(~rst_n_200) clk_cnt <= 10'd0;
+		if(~rst_n_200) clk_cnt <= 7'd0;
 		else           clk_cnt <= clk_cnt + 1;
 	
 	//data_pulse
 	initial data_pulse = 1'b0;
 	always @(posedge clk)
 		if(~rst_n_200)                    data_pulse <= 1'b0;
-		else if(clk_cnt == 10'd1023) data_pulse <= 1'b1;
+		else if(clk_cnt == 7'd127) data_pulse <= 1'b1;
 		else                              data_pulse <= 1'b0;
 	
 	//clk_en

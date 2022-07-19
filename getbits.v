@@ -90,7 +90,7 @@ module getbits (clk, clk_en, rst,
   always @(posedge clk)
     if(~rst) state <= STATE_SETUP;
     else if (clk_en) state <= next;
-    else state <= next;
+    else state <= state;
 
   /* registers */
 

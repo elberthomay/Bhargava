@@ -407,15 +407,17 @@ module video(
 	
 	//align_reg
   	always @(posedge clk)
-    	if (~rst) align_reg <= 1'b0;
-    	else if (module_en) align_reg <= align;
-    	else align_reg <= 1'b0;
+    	if (~rst)          align_reg <= 1'b0;
+    	else if(module_en) align_reg <= align;
+    	else if(clk_en)    align_reg <= 1'b0;
+		else               align_reg <= align_reg;
 
 	//advance_reg
   	always @(posedge clk)
-    	if (~rst) advance_reg <= 1'b0;
-    	else if (module_en) advance_reg <= advance;
-    	else advance_reg <= 1'b0;
+    	if (~rst)          advance_reg <= 1'b0;
+    	else if(module_en) advance_reg <= advance;
+    	else if(clk_en)    advance_reg <= 1'b0;
+		else               advance_reg <= advance_reg;
 		
 	/*
    * wait_state is asserted if align or advance will be non-zero during the next clock cycle, 
@@ -429,7 +431,8 @@ module video(
 	always @(posedge clk)
 		if(~rst)           sign_en <= 1'b0;
 		else if(module_en) sign_en <= next_sign_en;
-		else               sign_en <= 1'b0;
+		else if(clk_en)    sign_en <= 1'b0;
+		else               sign_en <= sign_en;
 	
 	//sign_bit
 	always @(posedge clk)
@@ -446,9 +449,10 @@ module video(
 		
 	//extend_en
 	always @(posedge clk)
-		if(~rst) 			extend_en <= 1'b0;
-		else if(module_en)	extend_en <= next_extend_en;
-		else				extend_en <= 1'b0;
+		if(~rst) 		   extend_en <= 1'b0;
+		else if(module_en) extend_en <= next_extend_en;
+		else if(clk_en)	   extend_en <= 1'b0;
+		else               extend_en <= extend_en;
 		
 		
 	//sign_type
@@ -460,21 +464,24 @@ module video(
 		else                                                     sign_type <= sign_type;
 	
 	always @(posedge clk)
-		if(~rst) 			group_change <= 1'b0;
-		else if (module_en)	group_change <= state == STATE_NEXT_BLOCK || state == STATE_COMPENSATION;
-		else				group_change <= 1'b0;
+		if(~rst) 		   group_change <= 1'b0;
+		else if(module_en) group_change <= state == STATE_NEXT_BLOCK || state == STATE_COMPENSATION;
+		else if(clk_en)	   group_change <= 1'b0;
+		else               group_change <= group_change;
 		
 	//macroblock_end
 	always@(posedge clk)
-		if(~rst)            macroblock_end <= 1'b0;
-		else if (module_en) macroblock_end <= state == STATE_NEXT_BLOCK && (next == STATE_NEXT_MACROBLOCK || next == STATE_NEXT_START_CODE);
-		else                macroblock_end <= 1'b0;
+		if(~rst)           macroblock_end <= 1'b0;
+		else if(module_en) macroblock_end <= state == STATE_NEXT_BLOCK && (next == STATE_NEXT_MACROBLOCK || next == STATE_NEXT_START_CODE);
+		else if(clk_en)    macroblock_end <= 1'b0;
+		else               macroblock_end <= macroblock_end;
 	
 	//slice_end 
 	always@(posedge clk)
 		if(~rst)           slice_end <= 1'b0;
 		else if(module_en) slice_end <= state == STATE_NEXT_BLOCK && next == STATE_NEXT_START_CODE;
-		else               slice_end <= 1'b0;
+		else if(clk_en)    slice_end <= 1'b0;
+		else               slice_end <= slice_end;
 		
 
 	/* position in video stream */
