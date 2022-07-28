@@ -43,54 +43,59 @@ module splitter (
 
 	reg [23:0]       header_reg;         // store last three bytes
 	
+	reg              video_pack;
+	
 	wire             almost_full = vid_afull || misc_afull || vbuf_afull;
 	
 	wire             next_out_en = stream_ready && ~almost_full;
 	
 
 	parameter [7:0]
-		STATE_NON_VIDEO_PACK          = 8'h0,
-		STATE_VIDEO_PACK_SIZE0        = 8'h1,
-		STATE_VIDEO_PACK_SIZE1        = 8'h2,
+		STATE_NON_PACK                = 8'h0,
+		STATE_PACK_SIZE               = 8'h1,
+		STATE_PACK_SIZE1              = 8'h2,
 		STATE_VIDEO_TIMESTAMP_HEADER  = 8'h3,
 		STATE_VIDEO_MISC              = 8'h4,
 		STATE_VIDEO_TIMESTAMP         = 8'h5,
-		STATE_VIDEO_STREAM            = 8'h6;
+		STATE_PACK_STREAM             = 8'h6;
+		
 
 	// next state logic
 	always @* begin
 		casez(state)
-			STATE_NON_VIDEO_PACK         : if( header_reg == 24'h000001 && //
-			                                   stream_in[7:4] == 4'hE)        next = STATE_VIDEO_PACK_SIZE0;        // E0~EF video pack
-				                           else                               next = STATE_NON_VIDEO_PACK;                // no video packet yet
+			STATE_NON_PACK               : next = (header_reg == 24'h000001 && stream_in >= 8'hBD && stream_in <= 8'hEF) ? STATE_PACK_SIZE : STATE_NON_PACK;     // 24'h000001 is header start code
 				
-			STATE_VIDEO_PACK_SIZE0       :                                    next = STATE_VIDEO_PACK_SIZE1;			    // first byte of video pack size
+			STATE_PACK_SIZE              : next = STATE_PACK_SIZE1;			                                       // first byte of pack size
 			
-			STATE_VIDEO_PACK_SIZE1       :                                    next = STATE_VIDEO_TIMESTAMP_HEADER;  // second byte of video pack size
+			STATE_PACK_SIZE1             : next = video_pack ? STATE_VIDEO_TIMESTAMP_HEADER : STATE_PACK_STREAM;   // second byte of pack size, process timestamp if video, consume packet otherwise
 			
-			STATE_VIDEO_TIMESTAMP_HEADER : if( stream_in == 8'hFF )           next = STATE_VIDEO_TIMESTAMP_HEADER;	// stuffing byte
-                                           else if( stream_in[7:6] == 2'b01 ) next = STATE_VIDEO_MISC;				// buffer scale/ size
-                                           else if( stream_in[5:4] == 2'b00 ) next = STATE_VIDEO_STREAM;			// no timestamp, next byte is video stream
-                                           else                               next = STATE_VIDEO_TIMESTAMP;			// timestamp
+			STATE_VIDEO_TIMESTAMP_HEADER : if( stream_in == 8'hFF )           next = STATE_VIDEO_TIMESTAMP_HEADER; // stuffing byte
+                                           else if( stream_in[7:6] == 2'b01 ) next = STATE_VIDEO_MISC;			   // buffer scale/ size
+                                           else if( stream_in[5:4] == 2'b00 ) next = STATE_PACK_STREAM;            // no timestamp, next byte is video stream
+                                           else                               next = STATE_VIDEO_TIMESTAMP;        // timestamp
 										   
-			STATE_VIDEO_MISC             :                                    next = STATE_VIDEO_TIMESTAMP_HEADER;	// skip buffer size
+			STATE_VIDEO_MISC             : next = STATE_VIDEO_TIMESTAMP_HEADER;                                    // skip buffer size
 			
-			STATE_VIDEO_TIMESTAMP        : if( timestamp_counter == 16'h1 )   next = STATE_VIDEO_STREAM;            // timestamp over, next byte is video stream
-                                           else                               next = STATE_VIDEO_TIMESTAMP;         // timestamp bytes still remain
+			STATE_VIDEO_TIMESTAMP        : if( timestamp_counter == 16'h1 )   next = STATE_PACK_STREAM;            // timestamp over, next byte is video stream
+                                           else                               next = STATE_VIDEO_TIMESTAMP;        // timestamp bytes still remain
 										   
-			STATE_VIDEO_STREAM           : if( packet_counter == 16'h1 )      next = STATE_NON_VIDEO_PACK;          // video pack over, back to state_non_video_pack
-                                           else                               next = STATE_VIDEO_STREAM;            // video pack remains
+			STATE_PACK_STREAM            : if( packet_counter == 16'h1 )      next = STATE_NON_PACK;                // packet over, back to STATE_NON_PACK
+                                           else                               next = STATE_PACK_STREAM;             // packet remains
 										   
-			default                      :                                    next = STATE_NON_VIDEO_PACK;                // something is wrong
+			default                      : next = STATE_NON_PACK;                                                   // something is wrong
 		endcase
 	end
 	
 	// state
-	always @(posedge clk) begin
-		if(~rst)                       state <= STATE_NON_VIDEO_PACK;
+	always @(posedge clk)
+		if(~rst)                       state <= STATE_NON_PACK;
 		else if(clk_en && next_out_en) state <= next;
 		else                           state <= state;
-	end
+	
+	always @(posedge clk)
+		if(~rst)                                   video_pack <= 1'b0;
+		else if(clk_en && state == STATE_NON_PACK) video_pack <= header_reg == 24'h000001 && stream_in[7:4] == 4'hE;
+		else                                       video_pack <= video_pack;
 
 	// stream_out
 	always @(posedge clk)
@@ -102,13 +107,13 @@ module splitter (
 	//vid_out_en
 	always @(posedge clk)
 		if(~rst)        vid_out_en <= 1'b0;
-		else if(clk_en) vid_out_en <= next_out_en && state == STATE_VIDEO_STREAM;
+		else if(clk_en) vid_out_en <= next_out_en && state == STATE_PACK_STREAM && video_pack;
 		else            vid_out_en <= vid_out_en;
 	
 	//misc_out_en
 	always @(posedge clk)
 		if(~rst)        misc_out_en <= 1'b0;
-		else if(clk_en) misc_out_en <= next_out_en && state != STATE_VIDEO_STREAM;
+		else if(clk_en) misc_out_en <= next_out_en && (state != STATE_PACK_STREAM || ~video_pack);
 		else            misc_out_en <= misc_out_en;
 	
 	//stream_ready
@@ -136,19 +141,19 @@ module splitter (
 	
 	// packet_counter
 	always @(posedge clk) begin
-		if(~rst)                                           packet_counter <= 16'h0;
-		else if(clk_en && state == STATE_VIDEO_PACK_SIZE0) packet_counter <= {stream_in, packet_counter[7:0]};
-		else if(clk_en && state == STATE_VIDEO_PACK_SIZE1) packet_counter <= {packet_counter[15:8], stream_in};
-		else if(clk_en && next_out_en)                     packet_counter <= packet_counter - 16'd1;
-		else                                               packet_counter <= packet_counter;
+		if(~rst)                                     packet_counter <= 16'h0;
+		else if(clk_en && state == STATE_PACK_SIZE)  packet_counter <= {stream_in, packet_counter[7:0]};
+		else if(clk_en && state == STATE_PACK_SIZE1) packet_counter <= {packet_counter[15:8], stream_in};
+		else if(clk_en && next_out_en)               packet_counter <= packet_counter - 16'd1;
+		else                                         packet_counter <= packet_counter;
 	end
 	
 	// timestamp_counter
 	always @(posedge clk) begin
-		if(~rst) timestamp_counter <= 8'h0;
+		if(~rst)                                                                            timestamp_counter <= 8'h0;
 		else if(clk_en && state == STATE_VIDEO_TIMESTAMP_HEADER && stream_in[5:4] == 2'b10) timestamp_counter <= 8'h4;
 		else if(clk_en && state == STATE_VIDEO_TIMESTAMP_HEADER && stream_in[5:4] == 2'b11) timestamp_counter <= 8'h9;
-		else if(clk_en && next_out_en ) timestamp_counter <= timestamp_counter - 8'd1;
-		else timestamp_counter <= timestamp_counter;
+		else if(clk_en && next_out_en )                                                     timestamp_counter <= timestamp_counter - 8'd1;
+		else                                                                                timestamp_counter <= timestamp_counter;
 	end
 endmodule

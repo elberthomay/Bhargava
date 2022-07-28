@@ -1,5 +1,5 @@
-//`undef DES
-`define DES 1
+`undef DES
+//`define DES 1
 
 `timescale 1ns/1ns
 //////////////////////////////////////////////////////////////////////////////////
@@ -122,7 +122,7 @@ module bhargava_test(
 	
 	//file
 	initial begin
-		file = $fopen("dats/error7.mpg", "rb");	//bjork_snippet5
+		file = $fopen("dats/bjork.mpg", "rb");	//bjork_snippet5
 		if (!file) begin
 			$error("could not read file");
 			$stop;
