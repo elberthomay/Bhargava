@@ -1,7 +1,7 @@
 //`undef DES
 `define DES 1
-`undef DEBUG
-//`define DEBUG 1
+//`undef DEBUG
+`define DEBUG 1
 module bhargava(
 	
 	
@@ -13,6 +13,7 @@ module bhargava(
 	input [7:0]  mpeg_in,
 	input        mpeg_in_en,
 	output       mpeg_prog_full, 
+	output       mpeg_full,
 	input        stream_end,
 
 	
@@ -336,6 +337,7 @@ module bhargava(
         .din(mpeg_in),
 		.wr_en(mpeg_in_en),
 		.prog_full(mpeg_prog_full),
+		.full(mpeg_full),
 		
         .dout(mpeg_fifo_dout),
         .rd_en(splitter_mpeg_rd),

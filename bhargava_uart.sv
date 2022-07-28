@@ -23,6 +23,7 @@
 
 module bhargava_uart(
 	input clk_200_p, clk_200_n, rst_n, 
+	output mpeg_full_led,
 	input rx_in,
 	output tx_out
 );
@@ -55,6 +56,7 @@ module bhargava_uart(
 	wire [7:0]mpeg_out;
 	wire uart_tx_busy;
 	wire mpeg_empty;
+	wire mpeg_full;
 	
 	
 	logic [1:0] state, next;
@@ -63,6 +65,8 @@ module bhargava_uart(
 	logic mode_reg;
 	logic key_en_reg_0, key_en_reg_1;
 	logic key_en_reg;
+	
+	logic mpeg_full_reg;
 	
 	logic stream_end_reg;
 	
@@ -121,10 +125,17 @@ module bhargava_uart(
 	always_ff @(posedge clk_200)
 		if(~rst_n_200) mpeg_ready <= 1'b0;
 		else           mpeg_ready <= (mpeg_ready && uart_tx_busy) || mpeg_rd;
+		
+	always_ff @(posedge clk_200)
+		if(~rst_n_200)     mpeg_full_reg <= 1'b0;
+		else if(mpeg_full) mpeg_full_reg <= 1'b1;
+		else               mpeg_full_reg <= mpeg_full_reg;
 	
 	always_comb mpeg_rd = ~mpeg_ready && ~mpeg_empty;
 	
 	always_comb tx_en = mpeg_ready && ~uart_tx_busy;
+	
+	assign mpeg_full_led = ~mpeg_full_reg;
 
 	clk_wiz_400 clk_wiz_400_inst(
 		.clk_in1_p(clk_200_p),
@@ -192,7 +203,7 @@ module bhargava_uart(
 	
 		.mpeg_in(data_in),
 		.mpeg_in_en(mpeg_in_en),
-		//.mpeg_prog_full(), 
+		.mpeg_full(mpeg_full), 
 		.stream_end(stream_end_reg),
 	
 		.mpeg_out(mpeg_out),
