@@ -1,5 +1,5 @@
-`undef DES
-//`define DES 1
+//`undef DES
+`define DES 1
 
 `timescale 1ns/1ns
 //////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ module bhargava_test(
 	
 	
 	reg [7:0]  mpeg_in;
-	reg        mpeg_in_en, stream_end;
+	reg        mpeg_wr, stream_end;
 	
 	wire [7:0] mpeg_out;
 	wire       mpeg_rd;
@@ -65,7 +65,7 @@ module bhargava_test(
 	
 	
 	initial mpeg_in = 8'h00;
-	initial mpeg_in_en = 1'b0;
+	initial mpeg_wr = 1'b0;
 	initial stream_end = 1'b0;
 
 	//clk
@@ -88,7 +88,7 @@ module bhargava_test(
 	initial begin
 		key_in = 64'ha1b2c3d4e5f61234;
 		
-		mode_in = 1'b1;
+		mode_in = 1'b0;
 		
 		key_en = 1'b0;
 		#150 key_en = 1'b0;
@@ -130,21 +130,21 @@ module bhargava_test(
 		r = $fread(mem, file);
 	end
 	
-	//mpeg_in and mpeg_in_en
+	//mpeg_in and mpeg_wr
 	
 	
 	always @(posedge clk) begin
 		if(rst_n_200 && ~mpeg_prog_full && in_cnt < r)begin	//47519745 7724 1494 1640
 			mpeg_in <= mem[in_cnt];
-			mpeg_in_en <= 1'b1;
+			mpeg_wr <= 1'b1;
 			in_cnt = in_cnt + 1;
 		end
 		else if(in_cnt == r) begin
 			stream_end <= 1'b1;
-			mpeg_in_en <= 1'b0;
+			mpeg_wr <= 1'b0;
 		end
 		else begin
-			mpeg_in_en <= 1'b0;
+			mpeg_wr <= 1'b0;
 		end
 	end
 	
@@ -194,7 +194,7 @@ module bhargava_test(
 		.rst_n_300(rst_n_300),
         .mpeg_in(mpeg_in),
 		.stream_end(stream_end),
-        .mpeg_in_en(mpeg_in_en),
+        .mpeg_wr(mpeg_wr),
 		
 	`ifdef DES
 		.key_in(key_in),

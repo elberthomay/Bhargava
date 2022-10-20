@@ -70,7 +70,7 @@ module bhargava_uart(
 	
 	logic stream_end_reg;
 	
-	logic mpeg_in_en;
+	logic mpeg_wr;
 	
 	logic mpeg_ready;
 	logic mpeg_rd;
@@ -115,7 +115,7 @@ module bhargava_uart(
 		if(~rst_n_200) state <= 2'd0;
 		else           state <= next;
 		
-	always_comb mpeg_in_en = state == STATE_DATA && uart_data_valid;
+	always_comb mpeg_wr = state == STATE_DATA && uart_data_valid;
 	
 	always_ff @(posedge clk_200)
 		if(~rst_n_200)           stream_end_reg <= 1'b0;
@@ -202,7 +202,7 @@ module bhargava_uart(
 		`endif
 	
 		.mpeg_in(data_in),
-		.mpeg_in_en(mpeg_in_en),
+		.mpeg_wr(mpeg_wr),
 		.mpeg_full(mpeg_full), 
 		.stream_end(stream_end_reg),
 	
