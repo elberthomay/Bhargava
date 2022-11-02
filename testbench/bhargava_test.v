@@ -29,7 +29,7 @@ module bhargava_test(
 	reg clk_en, rst_n_200, rst_n_300, rst_n;
 	
 	integer r, file, file_out, status;
-	reg [7:0] mem[0:5000000];
+	reg [7:0] mem[0:50000000];
 	
 	
 	
