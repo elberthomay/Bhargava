@@ -12,11 +12,13 @@ module counter_test();
 	wire  group_change;
 	wire align, align_reg, wait_state, vld_en;
     wire sign_loc, extend_en, sign_bit, sign_en, macroblock_end, slice_end;
-	wire [7:0]extend_cnt_out, sign_cnt_out;
+	wire sign_flag_out;
+	wire extend_flag_out;
+	wire [6:0]sign_cnt_out;
 	wire  extend_cnt_wr, sign_cnt_wr;
 	integer rld_cnt;
 	
-	reg rld_wr_almost_full;
+	reg mb_fifo_afull;
 
 	task refresh_getbits(); 
 		begin
@@ -43,7 +45,7 @@ module counter_test();
 	endtask
 
 	initial begin
-    	fd = $fopen("E:/Bhargava/Bhargava.srcs/src/testbench/dats/vld test.mpg", "rb");
+    	fd = $fopen("F:/Bhargava/Bhargava.srcs/src/testbench/dats/vld test.mpg", "rb");
     	if (!fd) $error("could not read file");
 	end
 
@@ -60,16 +62,16 @@ module counter_test();
 
 	initial @(posedge clk) rst <= 1'b1;	
 	
-	initial rld_wr_almost_full = 1'b0;
+	initial mb_fifo_afull = 1'b0;
 	
 	// initial rld_cnt = 0;
 	// always @(posedge clk) begin
 		// if(rld_cnt == 3) begin
-			// rld_wr_almost_full <= 1'b1;
+			// mb_fifo_afull <= 1'b1;
 			// rld_cnt <= 0;
 		// end
 		// else begin
-			// rld_wr_almost_full <= 1'b0;
+			// mb_fifo_afull <= 1'b0;
 			// rld_cnt <= rld_cnt + 1;
 		// end
 	// end
@@ -95,9 +97,10 @@ module counter_test();
     //.signbit(signbit), 
     .getbits_valid(getbits_valid),
     //.wait_state(wait_state), 
-    .rld_wr_almost_full(rld_wr_almost_full), 
-    .mvec_wr_almost_full(1'b0), 
-    .motcomp_busy(1'b0), 
+    .mb_fifo_afull(mb_fifo_afull), 
+    .mb_conf_fifo_afull(1'b0), 
+    .sign_counter_fifo_afull(1'b0), 
+	.extend_counter_fifo_afull(1'b0),
     .vld_en(vld_en));
 
 	video vld(
@@ -120,29 +123,19 @@ module counter_test();
 	.slice_end(slice_end)
 	);
 	
-	sign_counter sgn(
+	counter sgn(
 		.clk(clk), 
 		.clk_en(clk_en), 
 		.rst(rst),
 		.advance(advance_reg),
 		.align(align_reg),
 		.sign_en(sign_en),
+		.extend_en(extend_en),
 		.sign_loc(sign_loc),
 	
+		.extend_flag_out(extend_flag_out),
+		.sign_flag_out(sign_flag_out),
 		.cnt_out(sign_cnt_out),
 		.cnt_wr(sign_cnt_wr)
-	);
-	
-	
-	extend_counter ext(
-		.clk(clk), 
-		.clk_en(clk_en), 
-		.rst(rst),
-		.advance(advance_reg), 
-		.align(align_reg),
-		.extend_en(extend_en),
-	
-		.cnt_out(extend_cnt_out),
-		.cnt_wr(extend_cnt_wr)
 	);
 endmodule
