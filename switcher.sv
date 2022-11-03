@@ -1,4 +1,4 @@
-module sign_switcher(
+module switcher(
 	input        clk, clk_en, rst,
 	
 	input [90:0] mb_conf,					// number of sign on each group(13*7 bit) motion, selected g1, unselected g1, selected g2... unselected g6;
@@ -6,14 +6,18 @@ module sign_switcher(
 	input        has_one_group,				// there's only 1 group with sign in mb
 	input        mb_conf_empty,				// empty flag of mb_conf_fifo
 	
-	input [7:0]  sign_count,				// sign_count input {[7]:has_sign, [6:0]:count}
+	input 		 sign_flag,
+	input		 extend_flag,
+	input [6:0]  sign_count,				// sign_count input
 	input        sign_count_empty, 			// empty flag of sign_count_fifo
 	
 	input        count_out_afull, 			// almost_full flag of count_out
 	
 	output logic       mb_conf_rd, 			// rd flag to mb_conf_fifo
 	output logic       sign_count_rd, 		// rd flag to sign_count_fifo
-	output logic [7:0] count_out, 			// count_out output
+	output logic	   sign_flag_out,		// count has sign
+	output logic	   extend_flag_out,		// count has extended escape
+	output logic [6:0] count_out, 			// count_out output
 	output logic       count_out_wr 		// write flag to count_out_fifo
 );
 	logic mb_conf_ready;					// valid flag of mb_conf, internally managed
@@ -55,14 +59,14 @@ module sign_switcher(
 			//if(~rst) mb_conf_reg[i] <= 7'b0;
 			if(clk_en && ~mb_conf_reg_ready && mb_conf_ready) mb_conf_reg[i] <= mb_conf[90-i*7 -: 7];
 			else if(clk_en && current_group[i] &&             //
-			        next_count_out_wr && sign_count[7])       mb_conf_reg[i] <= mb_conf_reg[i] - 1;
+			        next_count_out_wr && sign_flag)           mb_conf_reg[i] <= mb_conf_reg[i] - 1;
 			else                                              mb_conf_reg[i] <= mb_conf_reg[i];
 	endgenerate
 			
 	//mb_conf_reg_ready
 	always_ff @(posedge clk)
 		if(~rst)        mb_conf_reg_ready <= 1'b0;
-		else if(clk_en) mb_conf_reg_ready <= (mb_conf_ready && ~mb_conf_reg_ready) || (mb_conf_reg_ready && ~(last_group && current_conf == 6'd1 && next_count_out_wr && sign_count[7]) );
+		else if(clk_en) mb_conf_reg_ready <= (mb_conf_ready && ~mb_conf_reg_ready) || (mb_conf_reg_ready && ~(last_group && current_conf == 6'd1 && next_count_out_wr && sign_flag) );
 		else            mb_conf_reg_ready <= mb_conf_reg_ready;
 		
 	//group_empty
@@ -72,23 +76,23 @@ module sign_switcher(
 		for(genvar i = 1; i < 2; i++)
 			always_ff @(posedge clk)
 				//if(~rst) group_empty[i] <= 1'b1;
-				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                                                  group_empty[i] <= mb_conf[90-i*7 -: 7] == 7'd0 || (i == first_group);
-				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_count[7] && &group_empty[0 +: i]) group_empty[i] <= 1'b1;
-				else                                                                                               group_empty[i] <= group_empty[i];
+				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                                              group_empty[i] <= mb_conf[90-i*7 -: 7] == 7'd0 || (i == first_group);
+				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_flag && &group_empty[0 +: i]) group_empty[i] <= 1'b1;
+				else                                                                                           group_empty[i] <= group_empty[i];
 		
 		for(genvar i = 3; i < 13; i = i+2)
 			always_ff @(posedge clk)
 				//if(~rst) group_empty[i] <= 1'b1;
-				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                                                  group_empty[i] <= mb_conf[90-i*7 -: 7] == 7'd0 || (first_group * 2 == (i+1));
-				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_count[7] && &group_empty[0 +: i]) group_empty[i] <= 1'b1;
-				else                                                                                               group_empty[i] <= group_empty[i];
+				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                                              group_empty[i] <= mb_conf[90-i*7 -: 7] == 7'd0 || (first_group * 2 == (i+1));
+				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_flag && &group_empty[0 +: i]) group_empty[i] <= 1'b1;
+				else                                                                                           group_empty[i] <= group_empty[i];
 				
 		for(genvar i = 2; i < 13; i = i+2)
 			always_ff @(posedge clk)
 				//if(~rst) group_empty[i] <= 1'b1;
-				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                                                  group_empty[i] <= mb_conf[90-i*7 -: 7] == 7'd0;
-				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_count[7] && &group_empty[0 +: i]) group_empty[i] <= 1'b1;
-				else                                                                                               group_empty[i] <= group_empty[i];
+				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                                              group_empty[i] <= mb_conf[90-i*7 -: 7] == 7'd0;
+				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_flag && &group_empty[0 +: i]) group_empty[i] <= 1'b1;
+				else                                                                                           group_empty[i] <= group_empty[i];
 
 
 	endgenerate
@@ -104,32 +108,32 @@ module sign_switcher(
 		for(genvar i = 0; i < 2; i++)
 			always_ff @(posedge clk)
 				//if(~rst) current_group[i] <= 1'b0;
-				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                          current_group[i] <= first_group == i;
-				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_count[7]) current_group[i] <= next_group[i];
-				else                                                                       current_group[i] <= current_group[i];
+				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                      current_group[i] <= first_group == i;
+				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_flag) current_group[i] <= next_group[i];
+				else                                                                   current_group[i] <= current_group[i];
 				
 		for(genvar i = 3; i < 13; i = i+2)
 			always_ff @(posedge clk)
 				//if(~rst) current_group[i] <= 1'b0;
-				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                          current_group[i] <= first_group * 2 == (i+1);
-				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_count[7]) current_group[i] <= next_group[i];
-				else                                                                       current_group[i] <= current_group[i];
+				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                      current_group[i] <= first_group * 2 == (i+1);
+				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_flag) current_group[i] <= next_group[i];
+				else                                                                   current_group[i] <= current_group[i];
 				
 		for(genvar i = 2; i < 13; i = i+2)
 			always_ff @(posedge clk)
 				//if(~rst) current_group[i] <= 1'b0;
-				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                          current_group[i] <= 1'b0;
-				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_count[7]) current_group[i] <= next_group[i];
-				else                                                                       current_group[i] <= current_group[i];
+				if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                      current_group[i] <= 1'b0;
+				else if(clk_en && current_conf == 1 && next_count_out_wr && sign_flag) current_group[i] <= next_group[i];
+				else                                                                   current_group[i] <= current_group[i];
 		
 	endgenerate
 			
 	//last_group
 	always_ff @(posedge clk)
 		//if(~rst) last_group <= 1'b0;
-		if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                          last_group <= has_one_group;
-		else if(clk_en && current_conf == 1 && next_count_out_wr && sign_count[7]) last_group <= is_one_cold_or_empty(group_empty);
-		else                                                                       last_group <= last_group;
+		if(clk_en && ~mb_conf_reg_ready && mb_conf_ready)                      last_group <= has_one_group;
+		else if(clk_en && current_conf == 1 && next_count_out_wr && sign_flag) last_group <= is_one_cold_or_empty(group_empty);
+		else                                                                   last_group <= last_group;
 		
 	//current_conf
 	always_comb begin
@@ -182,13 +186,23 @@ module sign_switcher(
 	//sign_count_rd
 	always_comb sign_count_rd = (~sign_count_ready || next_count_out_wr) && clk_en;
 	
+	//sign_flag_out
+	always_ff @(posedge clk)
+		if(clk_en && next_count_out_wr) sign_flag_out <= sign_flag && switch;
+		else                            sign_flag_out <= sign_flag_out;
+		
+	//extend_flag_out
+	always_ff @(posedge clk)
+		if(clk_en && next_count_out_wr) extend_flag_out <= extend_flag && switch;
+		else                            extend_flag_out <= extend_flag_out;
+	
 	//count_out
 	always_ff @(posedge clk)
-		if(clk_en && next_count_out_wr) count_out <= {sign_count[7] && switch, sign_count[6:0]};
+		if(clk_en && next_count_out_wr) count_out <= sign_count[6:0];
 		else                            count_out <= count_out;
 		
 	//count_out_wr
-	always_comb next_count_out_wr = (mb_conf_reg_ready || ~sign_count[7]) && sign_count_ready && ~count_out_afull;
+	always_comb next_count_out_wr = (mb_conf_reg_ready || ~sign_flag) && sign_count_ready && ~count_out_afull;
 	
 	always_ff @(posedge clk)
 		if(~rst)        count_out_wr <= 1'b0;
