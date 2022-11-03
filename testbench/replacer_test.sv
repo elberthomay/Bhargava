@@ -1,6 +1,7 @@
-module replacer_sign_test();
+module replacer_test();
 	logic       clk, clk_en, rst; 
-	logic [7:0] vid_in, cnt_in; 
+	logic [7:0] vid_in; 
+    logic [8:0] cnt_in; 
 	logic       vid_empty, cnt_empty;
 	logic       sign_in;
 	logic       sign_empty;
@@ -35,27 +36,27 @@ module replacer_sign_test();
 		
 		16 nosign
 	*/
-	logic [0:37] vid_empty_test = {2'b1, 35'b0, 1'b1};
+	logic [0:37] vid_empty_test = {1'b1, 35'b0, 1'b1};
 	
-	logic [0:12][7:0] cnt_in_test = 
-					{8'd64, 
+	logic [0:12][8:0] cnt_in_test = 
+					{9'd64, 
 					
-					 8'd110, 
-					 {1'b1, 7'd2}, 
+					 9'd108, 
+					 {1'b1, 1'b0, 7'd2}, 
 					 
-					 {1'b1, 7'd78},
-					 {1'b1, 7'd1},
-					 {1'b1, 7'd1},
+					 {1'b1, 1'b1, 7'd78},
+					 {1'b1, 1'b0, 7'd1},
+					 {1'b1, 1'b0, 7'd1},
 					 
-					 {1'b0, 7'd2},
-					 {1'b1, 7'd2},
-					 {1'b1, 7'd2},
-					 {1'b1, 7'd2},
+					 {1'b0, 1'b0, 7'd2},
+					 {1'b1, 1'b0, 7'd2},
+					 {1'b1, 1'b0, 7'd2},
+					 {1'b1, 1'b0, 7'd2},
 					 
-					 {1'b0, 7'd4},
-					 {1'b1, 7'd4},
+					 {1'b0, 1'b0, 7'd4},
+					 {1'b1, 1'b0, 7'd4},
 					 
-					 {1'b0, 7'd16}
+					 {1'b1, 1'b1, 7'd16}
 					};
 					 
 	logic [0:16] cnt_empty_test = {3'hF, 13'b0, 1'b1};
@@ -73,21 +74,21 @@ module replacer_sign_test();
 	always #5 clk = ~clk;
 	initial @(posedge clk) rst <= 1'b1;
 	
-	initial vid_in = 8'hFF;
+	initial vid_in = 8'h00;
 	
 	//vid_empty
 	int data_pnt = 0;
-	initial vid_empty = 1'b1;
-	always @(posedge clk) 
-		if(vid_rd && data_pnt < 38) begin
-			vid_empty <= vid_empty_test[data_pnt];
-			data_pnt++;
-		end
+	initial vid_empty = 1'b0;
+	//always @(posedge clk) 
+	//	if(vid_rd && data_pnt < 38) begin
+	//		vid_empty <= vid_empty_test[data_pnt];
+	//		data_pnt++;
+	//	end
 	
 		
 	//cnt
 	int cnt_pnt = 0;
-	initial cnt_empty = 1'b1;
+	initial cnt_empty = 1'b0;
 	always @(posedge clk) 
 		if(cnt_rd && ~cnt_empty && cnt_pnt < 13) begin
 			cnt_in <= cnt_in_test[cnt_pnt];
@@ -95,30 +96,32 @@ module replacer_sign_test();
 		end
 	
 	int cnt_empty_pnt = 0;
-	always @(posedge clk)
-		if(cnt_rd && cnt_empty_pnt < 17) begin
-			cnt_empty <= cnt_empty_test[cnt_empty_pnt];
-			cnt_empty_pnt++;
-		end
+	//always @(posedge clk)
+	//	if(cnt_rd && cnt_empty_pnt < 17) begin
+	//		cnt_empty <= cnt_empty_test[cnt_empty_pnt];
+	//		cnt_empty_pnt++;
+	//	end
 	
 		
 	initial sign_in = 1'b0;
 	
-	initial sign_empty = 1'b1;
-	int sign_pnt = 0;
-	always @(posedge clk) 
-		if(sign_rd && sign_pnt < 15) begin
-			sign_empty <= sign_empty_test[sign_pnt];
-			sign_pnt++;
-		end
+	initial sign_empty = 1'b0;
+	//int sign_pnt = 0;
+	//always @(posedge clk) 
+	//	if(sign_rd && sign_pnt < 15) begin
+	//		sign_empty <= sign_empty_test[sign_pnt];
+	//		sign_pnt++;
+	//	end
 	
 	
-	replacer_sign rep(
+	replacer rep(
 		.clk(clk), 
 		.clk_en(clk_en), 
 		.rst(rst), 
 		.vid_in(vid_in), 
-		.cnt_in(cnt_in), 
+        .sign_flag(cnt_in[8]),
+        .extend_flag(cnt_in[7]),
+		.cnt_in(cnt_in[6:0]), 
 		.vid_empty(vid_empty), 
 		.cnt_empty(cnt_empty),
 		.sign_in(sign_in),

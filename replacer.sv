@@ -1,6 +1,9 @@
-module replacer_sign(
+module replacer(
 	input              clk, clk_en, rst, 
-	input [7:0]        vid_in, cnt_in, 
+    input [7:0]        vid_in,
+	input			   sign_flag,
+	input              extend_flag,
+	input [6:0]        cnt_in, 
 	input              vid_empty, cnt_empty,
 	input              sign_in,
 	input              sign_empty,
@@ -19,11 +22,15 @@ module replacer_sign(
 	logic       vid_reg_ready;
 	
 	logic       has_sign;
+    logic       has_extend_0, has_extend_1;
+    logic       extend_bit;
+
 	logic [6:0] cnt_reg;
 	logic       cnt_reg_ready;
 	
 	logic [3:0] next_decrement;
 	logic [2:0] pointer;
+    logic [2:0] extend_pointer;
 	
 	logic       next_data_wr;
 	logic       cnt_reg_use;
@@ -108,14 +115,40 @@ module replacer_sign(
 	//has_sign
 	always_ff @(posedge clk)
 		if(~rst)                                               has_sign <= 1'b0;
-		else if(module_en && (~cnt_reg_ready || cnt_reg_use) ) has_sign <= cnt_in[7];
+		else if(module_en && (~cnt_reg_ready || cnt_reg_use) ) has_sign <= sign_flag;
 		else if(module_en && sign_ready)                       has_sign <= 1'b0;
 		else                                                   has_sign <= has_sign;
+        
+    //has_extend_0
+	always_ff @(posedge clk)
+		if(~rst)                                               has_extend_0 <= 1'b0;
+		else if(module_en && (~cnt_reg_ready || cnt_reg_use) ) has_extend_0 <= extend_flag;
+		else if(module_en && sign_ready)                       has_extend_0 <= 1'b0;
+		else                                                   has_extend_0 <= has_extend_0;
+        
+    //has_extend_1
+    always_ff @(posedge clk)
+        if(~rst)           has_extend_1 <= 1'b0;
+        else if(module_en) has_extend_1 <= has_extend_0 && sign_ready;
+        else               has_extend_1 <= has_extend_1;
+        
+    //extend_bit
+    always_ff @(posedge clk)
+        if(~rst)                                         extend_bit <= 1'b0;
+        else if(module_en && has_extend_0 && sign_ready) extend_bit <= ~sign_in;
+        else                                             extend_bit <= extend_bit;
+        
+    //extend_pointer
+    always_ff @(posedge clk)
+        if(~rst)                                         extend_pointer <= 3'b0;
+        else if(module_en && has_extend_0 && sign_ready) extend_pointer <= pointer;
+        else                                             extend_pointer <= extend_pointer;
+        
 		
 	//cnt_reg
 	always_ff @(posedge clk)
 		if(~rst)                                               cnt_reg <= 7'b0;
-		else if(module_en && (~cnt_reg_ready || cnt_reg_use) ) cnt_reg <= cnt_in[6:0];
+		else if(module_en && (~cnt_reg_ready || cnt_reg_use) ) cnt_reg <= cnt_in;
 		else if(module_en && (~has_sign || sign_ready) )       cnt_reg <= cnt_reg - next_decrement;
 		else                                                   cnt_reg <= cnt_reg;
 		
@@ -141,9 +174,10 @@ module replacer_sign(
 	generate for(genvar i = 7; i >=0; i--)
 		always_ff @(posedge clk)
 			//if(~rst)                                                    data_out[i] <= 1'b0;
-			if(module_en && next_data_wr && has_sign && pointer == i) data_out[i] <= sign_in;
-			else if(module_en && next_data_wr)                        data_out[i] <= vid_reg[i];
-			else                                                      data_out[i] <= data_out[i];
+			if(module_en && next_data_wr && has_sign && pointer == i)                 data_out[i] <= sign_in;
+            else if(module_en && next_data_wr && has_extend_1 && extend_pointer == i) data_out[i] <= extend_bit;
+			else if(module_en && next_data_wr)                                        data_out[i] <= vid_reg[i];
+			else                                                                      data_out[i] <= data_out[i];
 	endgenerate
 	
 	//data_wr
