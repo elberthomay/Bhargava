@@ -11,8 +11,7 @@ module replacer(
 	
 	output logic       vid_rd, cnt_rd, sign_rd, 
 	output logic [7:0] data_out, 
-	output logic       data_wr, 
-	output logic       last_sign_out
+	output logic       data_wr
 );
 	logic       module_en;
 	logic       vid_ready0, cnt_ready0, sign_ready0;
@@ -185,12 +184,6 @@ module replacer(
 		if(~rst)           data_wr <= 1'b0;
 		else if(module_en) data_wr <= next_data_wr;
 		else               data_wr <= 1'b0;
-		
-	//last_sign_out
-	always_ff @(posedge clk)
-		if(~rst)                                                        last_sign_out <= 1'b0;
-		else if(module_en && sign_ready && (has_sign && cnt_reg_ready)) last_sign_out <= sign_in;
-		else                                                            last_sign_out <= last_sign_out;
 		
 	assign module_en = clk_en && ~out_afull;
 	assign next_data_wr = vid_reg_ready && cnt_reg_ready && cnt_reg >= next_decrement && (~has_sign || sign_ready);

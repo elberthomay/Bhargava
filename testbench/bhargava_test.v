@@ -50,8 +50,8 @@ module bhargava_test(
 	integer in_cnt = 0;
 	integer out_cnt = 0;
 	
-	wire [31:0] vid_cnt, misc_in_cnt, vbuf_out_cnt, vlc_cnt_bit, ex_cnt_cnt, sign_cnt_cnt, 
-			   sign_switch_cnt, replacer_sign_cnt, replacer_extend_cnt;
+	wire [31:0] vid_cnt, misc_in_cnt, vbuf_out_cnt, vlc_cnt_bit, sign_cnt_cnt, 
+			   sign_switch_cnt, replacer_sign_cnt;
 	wire [31:0] vlc_sign_cnt, collator_sign_cnt, mb_ser_sign_cnt, dese64_sign_cnt, 
 		       post_des_sign_cnt, unscrambler_sign_cnt, post_unscr_ser_sign_cnt;
 	wire [28:0] vlc_cnt_byte, ex_cnt_cnt_byte, sign_cnt_cnt_byte, sign_switch_cnt_byte;
@@ -211,11 +211,9 @@ module bhargava_test(
         .misc_in_cnt(misc_in_cnt), 
         .vbuf_out_cnt(vbuf_out_cnt), 
         .vlc_cnt_bit(vlc_cnt_bit), 
-        .ex_cnt_cnt(ex_cnt_cnt), 
         .sign_cnt_cnt(sign_cnt_cnt), 
         .sign_switch_cnt(sign_switch_cnt), 
         .replacer_sign_cnt(replacer_sign_cnt), 
-        .replacer_extend_cnt(replacer_extend_cnt),
 		.vlc_sign_cnt(vlc_sign_cnt), 
         .collator_sign_cnt(collator_sign_cnt), 
         .mb_ser_sign_cnt(mb_ser_sign_cnt), 

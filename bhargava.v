@@ -1,7 +1,7 @@
 //`undef DES
 `define DES 1
-//`undef DEBUG
-`define DEBUG 1
+`undef DEBUG
+//`define DEBUG 1
 module bhargava(
 	
 	
@@ -31,8 +31,8 @@ module bhargava(
 	input        clk,
 	input        clk2x,
 	
-	output reg [31:0] vid_cnt, misc_in_cnt, vbuf_out_cnt, vlc_cnt_bit, ex_cnt_cnt, sign_cnt_cnt, 
-			   sign_switch_cnt, replacer_sign_cnt, replacer_extend_cnt,
+	output reg [31:0] vid_cnt, misc_in_cnt, vbuf_out_cnt, vlc_cnt_bit, sign_cnt_cnt, 
+			   sign_switch_cnt, replacer_sign_cnt,
 	output reg [31:0] vlc_sign_cnt, collator_sign_cnt, mb_ser_sign_cnt, dese64_sign_cnt, 
 		       post_des_sign_cnt, unscrambler_sign_cnt, post_unscr_ser_sign_cnt,
 	output [28:0] vlc_cnt_byte, ex_cnt_cnt_byte, sign_cnt_cnt_byte, sign_switch_cnt_byte,
@@ -156,27 +156,24 @@ module bhargava(
 	wire         bit_fifo_empty;
 	wire         bit_fifo_prog_full;
 	
-	wire [7:0]   extend_counter_cnt_out;
-	wire         extend_counter_cnt_wr;
+    wire         counter_sign_flag_out;
+    wire         counter_extend_flag_out;
+	wire [6:0]   counter_cnt_out;
+	wire         counter_cnt_wr;
 	
-	wire [7:0]   sign_counter_cnt_out;
-	wire         sign_counter_cnt_wr;
-	
-	wire [7:0]   extend_counter_fifo_dout;
-	wire         extend_counter_fifo_afull;
-	wire         extend_counter_fifo_empty;
-	
-	wire [7:0]   sign_counter_fifo_dout;
+	wire [8:0]   sign_counter_fifo_dout;
 	wire         sign_counter_fifo_afull;
 	wire         sign_counter_fifo_empty;
 	
-	wire [7:0]   sign_switcher_count_out;
-	wire         sign_switcher_count_out_wr;
-	wire         sign_switcher_mb_conf_rd;
-	wire         sign_switcher_sign_count_rd;
+    wire         switcher_sign_flag_out;
+    wire         switcher_extend_flag_out;
+	wire [6:0]   switcher_count_out;
+	wire         switcher_count_out_wr;
+	wire         switcher_mb_conf_rd;
+	wire         switcher_count_rd;
 	
 	
-	wire [7:0]   count_out_fifo_dout; 
+	wire [8:0]   count_out_fifo_dout; 
 	wire         count_out_fifo_afull;
 	wire         count_out_fifo_empty;
 	
@@ -190,12 +187,6 @@ module bhargava(
 	wire [8:0]   replacer_fifo_dout;
 	wire         replacer_fifo_afull;
 	wire         replacer_fifo_empty;
-	
-	
-	wire [7:0]   replacer_extend_data_out;
-	wire         replacer_extend_data_wr;
-	wire         replacer_extend_vid_rd;
-	wire         replacer_extend_cnt_rd;
 	
 	wire [7:0]   processed_vid_fifo_dout;
 	wire         processed_vid_fifo_afull;
@@ -255,29 +246,19 @@ module bhargava(
 		else                     vlc_cnt_bit <= vlc_cnt_bit + video_advance_reg;
 	
 	always @(posedge clk)
-		if(~rst_n_200)                     ex_cnt_cnt <= 32'h0;
-		else if(extend_counter_cnt_wr) ex_cnt_cnt <= ex_cnt_cnt + extend_counter_cnt_out[6:0];
-		else                           ex_cnt_cnt <= ex_cnt_cnt;
-	
-	always @(posedge clk)
-		if(~rst_n_200)                   sign_cnt_cnt <= 32'h0;
-		else if(sign_counter_cnt_wr) sign_cnt_cnt <= sign_cnt_cnt + sign_counter_cnt_out[6:0];
-		else                         sign_cnt_cnt <= sign_cnt_cnt;
+		if(~rst_n_200)          sign_cnt_cnt <= 32'h0;
+		else if(counter_cnt_wr) sign_cnt_cnt <= sign_cnt_cnt + counter_cnt_out;
+		else                    sign_cnt_cnt <= sign_cnt_cnt;
 		
 	always @(posedge clk)
-		if(~rst_n_200)                          sign_switch_cnt <= 32'd0;
-		else if(sign_switcher_count_out_wr) sign_switch_cnt <= sign_switch_cnt + sign_switcher_count_out[6:0];
-		else                                sign_switch_cnt <= sign_switch_cnt;
+		if(~rst_n_200)                 sign_switch_cnt <= 32'd0;
+		else if(switcher_count_out_wr) sign_switch_cnt <= sign_switch_cnt + switcher_count_out[6:0];
+		else                           sign_switch_cnt <= sign_switch_cnt;
 	
 	always @(posedge clk2x)
-		if(~rst_n_300)                     replacer_sign_cnt <= 32'h0;
+		if(~rst_n_300)                 replacer_sign_cnt <= 32'h0;
 		else if(replacer_sign_data_wr) replacer_sign_cnt <= replacer_sign_cnt + 1;
 		else                           replacer_sign_cnt <= replacer_sign_cnt;
-		
-	always @(posedge clk2x)
-		if(~rst_n_300)                       replacer_extend_cnt <= 32'h0;
-		else if(replacer_extend_data_wr) replacer_extend_cnt <= replacer_extend_cnt + 1;
-		else                             replacer_extend_cnt <= replacer_extend_cnt;
 	
 	always @(posedge clk)
 		if(~rst_n_200)             vlc_sign_cnt <= 32'd0;
@@ -318,9 +299,6 @@ module bhargava(
 
 	assign vlc_cnt_byte = vlc_cnt_bit[31:3];
 	assign vlc_cnt_rem = vlc_cnt_bit[2:0];
-  
-	assign ex_cnt_cnt_byte = ex_cnt_cnt[31:3];
-	assign ex_cnt_cnt_rem = ex_cnt_cnt[2:0];
   
 	assign sign_cnt_cnt_byte = sign_cnt_cnt[31:3];
 	assign sign_cnt_cnt_rem = sign_cnt_cnt[2:0];
@@ -435,7 +413,7 @@ module bhargava(
 		.mb_fifo_afull(mb_fifo_afull),
 		.mb_conf_fifo_afull(mb_conf_fifo_afull),
         .sign_counter_fifo_afull(sign_counter_fifo_afull),
-        .extend_counter_fifo_afull(extend_counter_fifo_afull),
+        .extend_counter_fifo_afull(1'b0),
 		
         .getbits(getbits_out),        
         .vld_en(getbits_vld_en)
@@ -509,7 +487,7 @@ module bhargava(
 		.almost_full(mb_conf_fifo_afull),
 		
         .dout(mb_conf_fifo_dout),
-        .rd_en(sign_switcher_mb_conf_rd),
+        .rd_en(switcher_mb_conf_rd),
         .empty(mb_conf_fifo_empty)
 	);
 	
@@ -659,59 +637,36 @@ module bhargava(
 	*side path
 	****************************************/
 	
-	extend_counter extend_counter_inst(
-		.clk(clk_200), 
-		.clk_en(clk_en),
-		.rst(rst_n_200),
-		.advance(video_advance_reg),
-		.align(video_align_reg),
-		.extend_en(video_extend_en),
-		
-		.cnt_out(extend_counter_cnt_out),
-		.cnt_wr(extend_counter_cnt_wr)
-	);
-	
-	extend_counter_fifo extend_counter_fifo_inst(
-		.wr_clk(clk_200),
-		.din(extend_counter_cnt_out),
-		.wr_en(extend_counter_cnt_wr),
-		//.almost_full(extend_counter_fifo_afull),
-		.prog_full(extend_counter_fifo_afull),
-		
-		.rd_clk(clk_300),
-		.dout(extend_counter_fifo_dout),
-		.rd_en(replacer_extend_cnt_rd),
-		.empty(extend_counter_fifo_empty),
-		.rst(rst_200)
-	);
-	
-	sign_counter sign_counter_inst(
+	counter sign_counter_inst(
 		.clk(clk_200),
 		.clk_en(clk_en),
 		.rst(rst_n_200),
 		.advance(video_advance_reg),
 		.align(video_align_reg),
 		.sign_en(video_sign_en),
+        .extend_en(video_extend_en),
 		.sign_loc(video_sign_loc),
 		
-		.cnt_out(sign_counter_cnt_out),
-		.cnt_wr(sign_counter_cnt_wr)
+        .sign_flag_out(counter_sign_flag_out),
+        .extend_flag_out(counter_extend_flag_out),
+		.cnt_out(counter_cnt_out),
+		.cnt_wr(counter_cnt_wr)
 	);
 	
 	sign_counter_fifo sign_counter_fifo_inst(
 		.clk(clk_200),
 		.srst(rst_200),
 		
-		.din(sign_counter_cnt_out),
-		.wr_en(sign_counter_cnt_wr),
+		.din({counter_sign_flag_out, counter_extend_flag_out, counter_cnt_out}),
+		.wr_en(counter_cnt_wr),
 		.almost_full(sign_counter_fifo_afull),
 		
 		.dout(sign_counter_fifo_dout),
-		.rd_en(sign_switcher_sign_count_rd),
+		.rd_en(switcher_count_rd),
 		.empty(sign_counter_fifo_empty)
 	);
 	
-	sign_switcher sign_switcher_inst(
+	switcher sign_switcher_inst(
 		.clk(clk_200),
 		.clk_en(clk_en),
 		.rst(rst_n_200),
@@ -721,20 +676,25 @@ module bhargava(
 		.has_one_group(mb_conf_fifo_dout[0]),
 		.mb_conf_empty(mb_conf_fifo_empty),
 		
-		.sign_count(sign_counter_fifo_dout),
+        .sign_flag(sign_counter_fifo_dout[8]),
+        .extend_flag(sign_counter_fifo_dout[7]),
+		.sign_count(sign_counter_fifo_dout[6:0]),
 		.sign_count_empty(sign_counter_fifo_empty),
 		.count_out_afull(count_out_fifo_afull),
 		
-		.mb_conf_rd(sign_switcher_mb_conf_rd),
-		.sign_count_rd(sign_switcher_sign_count_rd),
-		.count_out(sign_switcher_count_out),
-		.count_out_wr(sign_switcher_count_out_wr)
+		.mb_conf_rd(switcher_mb_conf_rd),
+		.sign_count_rd(switcher_count_rd),
+        
+        .sign_flag_out(switcher_sign_flag_out),
+        .extend_flag_out(switcher_extend_flag_out),
+		.count_out(switcher_count_out),
+		.count_out_wr(switcher_count_out_wr)
 	);
 	
 	count_out_fifo count_out_fifo_inst(
 		.wr_clk(clk_200),
-		.din(sign_switcher_count_out),
-		.wr_en(sign_switcher_count_out_wr),
+		.din({switcher_sign_flag_out, switcher_extend_flag_out, switcher_count_out}),
+		.wr_en(switcher_count_out_wr),
 		//.almost_full(count_out_fifo_afull),
 		.prog_full(count_out_fifo_afull),
 		
@@ -745,63 +705,33 @@ module bhargava(
 		.rst(rst_200)
 	);
 	
-	replacer_sign replacer_sign_inst(
+	replacer replacer_sign_inst(
 		.clk(clk_300),
 		.clk_en(clk_en),
 		.rst(rst_n_300),
 		
 		.vid_in(vid_fifo_dout),
-		.cnt_in(count_out_fifo_dout),
+        .sign_flag(count_out_fifo_dout[8]),
+        .extend_flag(count_out_fifo_dout[7]),
+		.cnt_in(count_out_fifo_dout[6:0]),
 		.vid_empty(vid_fifo_empty),
 		.cnt_empty(count_out_fifo_empty),
 		.sign_in(bit_fifo_dout),
 		.sign_empty(bit_fifo_empty),
-		.out_afull(replacer_fifo_afull),
+		.out_afull(processed_vid_fifo_afull),
 		
 		.vid_rd(replacer_sign_vid_rd),
 		.cnt_rd(replacer_sign_cnt_rd),
 		.sign_rd(replacer_sign_sign_rd),
 		
 		.data_out(replacer_sign_data_out),
-		.data_wr(replacer_sign_data_wr),
-		.last_sign_out(replacer_sign_last_sign_out)
-	);
-	
-	replacer_fifo replacer_fifo_inst(
-		.clk(clk_300),
-		.srst(rst_300),
-		
-		.din({replacer_sign_last_sign_out, replacer_sign_data_out}),
-		.wr_en(replacer_sign_data_wr),
-		.almost_full(replacer_fifo_afull),
-		
-		.dout(replacer_fifo_dout),
-		.rd_en(replacer_extend_vid_rd),
-		.empty(replacer_fifo_empty)
-	);
-	
-	replacer_extend replacer_extend_inst(
-		.clk(clk_300),
-		.clk_en(clk_en),
-		.rst(rst_n_300),
-		
-		.vid_in(replacer_fifo_dout[7:0]),
-		.cnt_in(extend_counter_fifo_dout),
-		.vid_empty(replacer_fifo_empty),
-		.cnt_empty(extend_counter_fifo_empty),
-		.last_sign_in(replacer_fifo_dout[8]),
-		.out_afull(processed_vid_fifo_afull),
-		
-		.vid_rd(replacer_extend_vid_rd),
-		.cnt_rd(replacer_extend_cnt_rd),
-		.data_out(replacer_extend_data_out),
-		.data_wr(replacer_extend_data_wr)
+		.data_wr(replacer_sign_data_wr)
 	);
 	
 	processed_vid_fifo processed_vid_fifo_inst(
 		.wr_clk(clk_300),
-		.din(replacer_extend_data_out),
-		.wr_en(replacer_extend_data_wr),
+		.din(replacer_sign_data_out),
+		.wr_en(replacer_sign_data_wr),
 		//.almost_full(processed_vid_fifo_afull),
 		.prog_full(processed_vid_fifo_afull),
 		
