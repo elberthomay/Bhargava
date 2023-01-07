@@ -190,13 +190,13 @@ module DES_pipeline(
 		
 	always_ff @(posedge clk)
 		if(~rst)        pipeline_valid <= 15'h0;
-		else if(clk_en) pipeline_valid <= {data_in_en, pipeline_valid[0:14]};
+		else if(clk_en) pipeline_valid <= {data_in_en, pipeline_valid[0:13]};
 		else            pipeline_valid <= pipeline_valid;
 		
 	always_ff @(posedge clk)
 		if(~rst)                                             valid_cnt <= 4'd0;
-		else if(clk_en && ~data_in_en && pipeline_valid[14]) valid_cnt <= valid_cnt + 1;
-		else if(clk_en && data_in_en && ~pipeline_valid[14]) valid_cnt <= valid_cnt - 1;
+		else if(clk_en && data_in_en && ~pipeline_valid[14]) valid_cnt <= valid_cnt + 1;
+		else if(clk_en && ~data_in_en && pipeline_valid[14]) valid_cnt <= valid_cnt - 1;
 		else                                                 valid_cnt <= valid_cnt;
 		
 	always_comb des_busy = valid_cnt != 4'd0;
